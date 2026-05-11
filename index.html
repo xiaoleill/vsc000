@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>任务管理器</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<header class="site-header">
+			<h1>任务管理器</h1>
+			<p class="lead">添加、删除并标记任务为已完成 — 可访问且响应式</p>
+		</header>
+
+		<main class="container" id="main">
+			<section aria-labelledby="add-task-heading" class="task-panel">
+				<h2 id="add-task-heading" class="visually-hidden">添加任务</h2>
+				<form id="task-form" class="task-form" aria-describedby="task-form-desc">
+					<p id="task-form-desc" class="visually-hidden">输入任务名称后按回车或点击添加。</p>
+						<label for="task-input" class="visually-hidden">任务名称</label>
+						<input type="text" id="task-input" name="task" placeholder="添加新任务，例如：买牛奶" autocomplete="off" required />
+						<button type="submit" class="btn primary">添加</button>
+						<div id="task-error" class="error" role="alert" aria-live="assertive"></div>
+				</form>
+
+				<div class="controls">
+					<div class="stats" id="task-stats" aria-live="polite"></div>
+				</div>
+
+				<ul id="task-list" class="task-list" aria-live="polite"></ul>
+			</section>
+		</main>
+
+		<footer class="site-footer">
+			<small>本地存储支持：<span id="storage-status">开启</span></small>
+		</footer>
+
+		<script src="app.js" defer></script>
+	</body>
+</html>
+
