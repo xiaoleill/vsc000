@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Test outputs (keep only source example)
+test_data/*_result*.xlsx
+test_data/_test_*.xlsx
+test_data/_perm_*.xlsx
+test_data/_roundtrip_*.xlsx
+test_data/_final_*.xlsx
