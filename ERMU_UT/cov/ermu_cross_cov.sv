@@ -1,0 +1,18 @@
+// =============================================================================
+//  ERMU Cross-Coverage Groups
+//  Cross-coverage between error sources, response types, and output channels
+// =============================================================================
+
+package ermu_cross_cov_pkg;
+
+    import uvm_pkg::*;
+    `include "uvm_macros.svh"
+    import ermu_cov_groups_pkg::*;
+
+    // Cross-coverage definitions will be expanded in Phase 4
+    // Example:
+    //   error_source_category × error_response_type
+    //   output_channel × error_source_group
+    //   wait_timer_id × prescaler_value
+
+endpackage : ermu_cross_cov_pkg
