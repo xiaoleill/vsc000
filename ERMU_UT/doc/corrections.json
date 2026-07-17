@@ -1,0 +1,210 @@
+[
+  {
+    "row": 62,
+    "序号": 62,
+    "col": "验证项目",
+    "old": "基本功能: CTCMP=100，超时后自动清除EOS",
+    "new": "基本功能: CTCMP=100，超时后CTS清零，禁止写CLR; 待CTS=0后软件写CLR清除EOS",
+    "reason": "【致命】Clear Timer只是写保护门控——CTS=1时阻止CLR写入，CTS=0后才允许软件CLR。它永远不会自动清除EOS。"
+  },
+  {
+    "row": 62,
+    "序号": 62,
+    "col": "验证方法与条件",
+    "old": "SET EOS，CTE=1, CTCMP=100，等待>100个计数周期。读EOyS",
+    "new": "SET EOS(使EOS=1)，CTE=1, CTCMP=100，等待>100个计数周期。读EOyS(验证CTS=0, EOS仍=1)。写CLR=1清除EOS。再读EOyS(验证EOS=0)",
+    "reason": "【致命】需增加CLR步骤验证软件清除流程，因为硬件不会自动清除EOS。"
+  },
+  {
+    "row": 62,
+    "序号": 62,
+    "col": "期待结果",
+    "old": "EOyS.CTS=0(计时器停), EOS=0(已自动清除)",
+    "new": "EOyS.CTS=0(计时器停，写保护解除), EOS=1(未被自动清除); 写CLR=1后EOyS.EOS=0(软件清除成功)",
+    "reason": "【致命】EOS不会被CTCMP超时自动清除，必须软件写CLR=1。"
+  },
+  {
+    "row": 7,
+    "序号": 7,
+    "col": "期待结果",
+    "old": "EOyS=0x1(EOS=1), CFGLOCK=0x1, 其余寄存器=0x0",
+    "new": "EOyS=0x1(EOS=1), CFGLOCK=0x1, EGC=0x0000_0001(HPIE_C0=1), 其余寄存器=0x0",
+    "reason": "【致命】C059 TS定义EGC复位值=0x0000_0001，HPIE_C0默认=1(HPI默认使能到Core0)。"
+  },
+  {
+    "row": 70,
+    "序号": 70,
+    "col": "验证方法与条件",
+    "old": "配置WTE=1,LPISE=1,CMP=200。注入LPI对应的错误。等待超时后读WTzS和ESS",
+    "new": "配置WTE=1, LPIn[2:0]=001(LPI0使能), CMP=200。注入LPI0对应错误。等待超时后读WTzS和ESS。再分别配置LPIn[2:0]=010(LPI1)、100(LPI2)复测",
+    "reason": "【致命】LPISE为3bit[2:0]独立字段(LPI0/1/2)，非1bit。需支持各LPI通道独立使能配置。"
+  },
+  {
+    "row": 70,
+    "序号": 70,
+    "col": "期待结果",
+    "old": "WTSx=1(已触发), 超时后ESS对应位=1",
+    "new": "仅使能通道对应的中断可触发WT; WTSx=1(已触发), 超时后ESS对应位=1; 未使能的LPI通道不触发",
+    "reason": "【致命】需验证3bit独立使能——仅使能的通道触发WT，未使能通道不影响。"
+  },
+  {
+    "row": 71,
+    "序号": 71,
+    "col": "验证方法与条件",
+    "old": "配置WTE=1,HPISE=1,CMP=200。注入HPI对应的错误。等待超时后读WTzS和ESS",
+    "new": "配置WTE=1, HPIn[18:16]=001(HPI0使能), CMP=200。注入HPI0对应错误。等待超时后读WTzS和ESS。再分别配置HPIn[18:16]=010(HPI1)复测(HPI2在N_NUM=2时不可用)",
+    "reason": "【致命】HPISE为3bit[18:16]独立字段(HPI0/1/2)，非1bit。需支持各HPI通道独立使能配置。"
+  },
+  {
+    "row": 71,
+    "序号": 71,
+    "col": "期待结果",
+    "old": "WTSx=1(已触发), 超时后ESS对应位=1",
+    "new": "仅使能通道对应的中断可触发WT; WTSx=1(已触发), 超时后ESS对应位=1; 未使能的HPI通道不触发",
+    "reason": "【致命】需验证3bit独立使能——仅使能的通道触发WT。"
+  },
+  {
+    "row": 98,
+    "序号": 98,
+    "col": "验证方法与条件",
+    "old": "配置PSSRS0=1(EOS0)，SET EOS。观测pssr_o",
+    "new": "配置PSSRS[16]=1(EOS0, bit16)，SET EOS。观测pssr_o",
+    "reason": "【致命】PSSRS为10bit[25:16]而非4bit[19:16]。EOS0在bit16(非旧bit0)。"
+  },
+  {
+    "row": 99,
+    "序号": 99,
+    "col": "验证方法与条件",
+    "old": "配置PSSRS4(LPI0)=1，触发LPI。观测pssr_o",
+    "new": "配置PSSRS[20]=1(LPI0, bit20)。触发LPI0。观测pssr_o。再分别测试PSSRS[21]=1(LPI1)和PSSRS[22]=1(LPI2)",
+    "reason": "【致命】PSSRS为10bit[25:16]，LPI0在bit20(非旧bit4)，LPI1在bit21，LPI2在bit22。需新增3路LPI独立触发测试。"
+  },
+  {
+    "row": 100,
+    "序号": 100,
+    "col": "验证方法与条件",
+    "old": "配置PSSRS7(HPI)=1，触发HPI。观测pssr_o",
+    "new": "配置PSSRS[23]=1(HPI, bit23)。触发HPI。观测pssr_o",
+    "reason": "【致命】PSSRS为10bit[25:16]，HPI在bit23(非旧bit7)。"
+  },
+  {
+    "row": 101,
+    "序号": 101,
+    "col": "验证方法与条件",
+    "old": "配置PSSRS8/9=1，触发APP_RST/SYS_RST。观测pssr_o",
+    "new": "配置PSSRS[24]=1(APP_RST, bit24), PSSRS[25]=1(SYS_RST, bit25)。分别触发对应复位请求。观测pssr_o",
+    "reason": "【致命】PSSRS为10bit[25:16]，APP_RST在bit24(非旧bit8)，SYS_RST在bit25(非旧bit9)。"
+  },
+  {
+    "row": 102,
+    "序号": 102,
+    "col": "验证方法与条件",
+    "old": "配置多个PSSRS=1，同时触发多个源。观测pssr_o",
+    "new": "配置多个PSSRS[25:16]=1(覆盖EOS/LPI/HPI/复位全部10bit)。同时触发对应源。观测pssr_o",
+    "reason": "【致命】PSSRS扩展至10bit[25:16]，需覆盖所有10种触发源类型的组合。"
+  },
+  {
+    "row": 103,
+    "序号": 103,
+    "col": "验证方法与条件",
+    "old": "PSSRS=全0，触发任意错误源。观测pssr_o",
+    "new": "PSSRS[25:16]=全0(10bit全0)。触发任意错误源。观测pssr_o",
+    "reason": "【致命】明确PSSRS为10bit[25:16]范围。"
+  },
+  {
+    "row": 68,
+    "序号": 68,
+    "col": "验证方法与条件",
+    "old": "Toggle运行中。SET使EOS=1，TTE=0。读TTCNT和EOyS",
+    "new": "Toggle运行中(EOUT引脚翻转)。写SET=1强制EOS=1(进入错误状态)，写TTE=0停止翻转。读TTCNT和EOyS",
+    "reason": "澄清停止条件: SET=1写使EOS=1(非Toggle翻转导致EOS变化)，TTE=0停止EOUT引脚翻转。Toggle Timer永远不改变EOS状态位。"
+  },
+  {
+    "row": 69,
+    "序号": 69,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。注意: Toggle Timer翻转的是EOUT引脚(eoutm_o/eoutc_o)，而非EOS状态位。EOS仅在错误事件(SET/错误源)时变化。",
+    "reason": "原注释可能误导为Toggle Timer翻转EOS位，实际翻转的是EOUT互补输出引脚对。"
+  },
+  {
+    "row": 74,
+    "序号": 74,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。注意: WTzC.STP为WO类型(写1有效停止定时器，读回0)，非RW。reg model中需将STP字段设为WO。",
+    "reason": "【重要】STP为WO(读回0)，不是RW。写STP=1停止定时器的验证方法正确，但读STP期望值恒为0。"
+  },
+  {
+    "row": 65,
+    "序号": 65,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。需补充子场景: CTS=1(计数运行中)时写CTE=0应被忽略——CTS高期间禁止禁能Clear Timer。当前仅测试了CTS=0时写CTE=0的情况。",
+    "reason": "【重要】缺失CTE=0写当CTS=1时的忽略测试场景——CTS=1期间禁能CTE应为无效操作(写保护)。"
+  },
+  {
+    "row": 77,
+    "序号": 77,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。注意: CCPS中PSC为8bit[23:16](CCPS_BW=8)，高8bit[31:24]为reserved非PSC字段。reg model中PSC需从16bit改为8bit。",
+    "reason": "【致命】CCPS PSC为8bit[23:16]而非16bit[31:16]。DUT参数CCPS_BW=8。"
+  },
+  {
+    "row": 78,
+    "序号": 78,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。PSC为8bit[23:16]，验证方法中PSC=0/1/127/255已覆盖8bit范围。确认reg model同步修正为8bit。",
+    "reason": "【致命】PSC位宽需与DUT的CCPS_BW=8一致。"
+  },
+  {
+    "row": 8,
+    "序号": 8,
+    "col": "验证项目",
+    "old": "ERMU0_EC1EG额外复位值验证",
+    "new": "ERMU0_ERC1(原EC1EG)额外复位值验证",
+    "reason": "文档中ECpEG已更名为ERCp(Error Response Configuration)，验证计划需同步使用新命名。"
+  },
+  {
+    "row": 44,
+    "序号": 44,
+    "col": "期待结果",
+    "old": "arst_req_o=1 (需DUT支持EC1EG=0x6666)",
+    "new": "arst_req_o=1 (需DUT支持ERC1/EC1EG=0x0006_6666)",
+    "reason": "同步ERCp命名，标注旧名EC1EG作为参考。"
+  },
+  {
+    "row": 39,
+    "序号": 39,
+    "col": "验证方法与条件",
+    "old": "配置EGC.HPIE=11，设置ERC=0x5。注入错误。观测hpi_irq_o",
+    "new": "配置EGC.HPIE=11(HPI0/HPI1使能，HPI2不可用——DUT N_NUM=2)。设置ERC=0x5。注入错误。观测hpi_irq_o",
+    "reason": "【重要】DUT N_NUM=2，HPI仅2路(HPI0/HPI1)，HPI2在当前DUT不可用。HPIE_C2/HPI2路由测试需在N_NUM=3配置下进行。"
+  },
+  {
+    "row": 39,
+    "序号": 39,
+    "col": "期待结果",
+    "old": "hpi_irq_o[1:0]=11，两核均收到NMI",
+    "new": "hpi_irq_o[1:0]=11(两核均收到NMI); hpi_irq_o[2]=0(HPI2不可用, N_NUM=2)",
+    "reason": "【重要】标注DUT N_NUM=2限制——无HPI2输出。"
+  },
+  {
+    "row": 71,
+    "序号": 71,
+    "col": "备注",
+    "old": "已实现",
+    "new": "已实现。注意: DUT N_NUM=2，HPIn[18:16]中HPI2(bit18)在当前DUT不可用，仅HPI0(bit16)和HPI1(bit17)有效。",
+    "reason": "【重要】标注N_NUM=2限制——HPIn[18]对应的HPI2通道不可用。"
+  },
+  {
+    "row": 7,
+    "序号": 7,
+    "col": "备注",
+    "old": "已实现，但需288源规模",
+    "new": "已实现。需升级: reg model扩展288源; EGC复位值=0x0000_0001; PSSRS扩展为10bit[25:16]。",
+    "reason": "PSSRS位域扩展至10bit，与EGC复位值修正同步更新备注指引。"
+  }
+]

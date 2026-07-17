@@ -52,16 +52,20 @@ class ermu_timer_test extends ermu_base_test;
 
         // ========================================================================
         //  2. Toggle Timer Test (channel 0)
+        //  Toggle timer behavior: counts only when EOS=0, toggles EOS to 1 at TTCMP
         // ========================================================================
         `uvm_info("TIMER", "--- Toggle Timer Test ---", UVM_NONE)
 
-        // Clear EOS first
-        env.reg_block.EOyC[0].write(st, 32'h0000_0002, UVM_FRONTDOOR, env.reg_block.reg_map);
+        // SET EOS=1 first — toggle timer does NOT count when EOS=1
+        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // SET=1
         #5000;
 
-        // Configure toggle: TTCMP=50, enable
+        // Configure toggle: TTCMP=50, enable (won't count yet, EOS=1)
         env.reg_block.EOyTTCMP[0].write(st, 32'h0000_0032, UVM_FRONTDOOR, env.reg_block.reg_map);
         env.reg_block.EOyTTC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // TTE=1
+
+        // Now CLR EOS → EOS=0, toggle timer starts counting toward TTCMP
+        env.reg_block.EOyC[0].write(st, 32'h0000_0002, UVM_FRONTDOOR, env.reg_block.reg_map); // CLR=1
         #50000;
 
         // Read toggle timer counter
@@ -70,8 +74,6 @@ class ermu_timer_test extends ermu_base_test;
         check_timer_running("Toggle", rd);
 
         // Disable toggle timer
-        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // SET=1
-        #2000;
         env.reg_block.EOyTTC[0].write(st, 32'h0000_0000, UVM_FRONTDOOR, env.reg_block.reg_map); // TTE=0
 
         // ========================================================================
@@ -99,13 +101,21 @@ class ermu_timer_test extends ermu_base_test;
         env.reg_block.WTzS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         `uvm_info("TIMER", $sformatf("Wait timer status: WT0S=0x%08h", rd), UVM_MEDIUM);
 
-        // The wait timer should have triggered (WTzE → ESS0 bit 0 should be set)
+        // Check source 8 error flag (ESS0 bit 8) — the injected source
         env.reg_block.ESS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         `uvm_info("TIMER", $sformatf("ESS0 after wait timer test: 0x%08h", rd), UVM_MEDIUM);
-        if (rd[0] == 1'b1)
-            `uvm_info("TIMER", "Wait timer timeout detected (ESS0[0]=1) OK", UVM_NONE)
+        if (rd[8] == 1'b1)
+            `uvm_info("TIMER", "Source 8 error detected (ESS0[8]=1) OK", UVM_NONE)
         else
-            `uvm_warning("TIMER", "Wait timer timeout NOT detected (ESS0[0]=0)")
+            `uvm_warning("TIMER", "Source 8 error NOT detected (ESS0[8]=0)")
+
+        // Also check WT0 internal error (ID=284 → ESS8[28])
+        env.reg_block.ESS[8].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        `uvm_info("TIMER", $sformatf("ESS8 (WT internal errors): 0x%08h", rd), UVM_MEDIUM);
+        if (rd[28] == 1'b1)
+            `uvm_info("TIMER", "WT0 timeout internal error detected (ESS8[28]=1) OK", UVM_NONE)
+        else
+            `uvm_warning("TIMER", "WT0 timeout internal error NOT detected (ESS8[28]=0)")
 
         // Cleanup
         env.reg_block.WTzC[0].write(st, 32'h0001_0000, UVM_FRONTDOOR, env.reg_block.reg_map); // STP=1
