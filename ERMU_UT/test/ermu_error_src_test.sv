@@ -30,21 +30,23 @@ class ermu_error_src_test extends ermu_base_test;
         for (int p = 0; p < 36; p++)
             env.reg_block.ERC[p].write(st, {8{3'h2}}, UVM_FRONTDOOR, env.reg_block.reg_map);
 
-        // ---- Select test sources: boundaries + one per category ----
+        // ---- Select test sources: boundaries + representative categories ----
+        //   Real error IDs 8~287 (driver maps: err_src_id[i] = real_id - 8)
+        //   IDs 0-7 are internal (WT timeout), tested elsewhere
         src_ids = '{
-            0, 1, 2, 3,        // WT errors (internal, but IDs 0-3 are in ESS0)
-            8, 9,               // SWDT, WDT
-            11,                  // Flash ECC correctable (category boundary)
-            19,                  // Last SRAM CERR
-            23, 28,              // SRAM FERR first/last
-            32, 33,              // Cache ECC
-            36, 38, 42, 44,     // CAN ECC (CERR first, FERR first)
-            48, 49,              // PKE ECC
-            51, 55,              // DMPU bus errors (first/last)
-            57, 58,              // DMA errors
-            60, 61,              // FPU, FCM
-            63, 127, 191, 255,  // Group boundaries
-            283                  // Last external source
+            8, 15,              // first external + WDT/CSU boundary
+            16, 27,             // CSU range boundary
+            31, 32,             // ESS0/ESS1 boundary
+            63, 64,             // ESS1/ESS2 boundary
+            95, 96,             // ESS2/ESS3 boundary
+            127, 128,           // ESS3/ESS4 boundary
+            159, 160,           // ESS4/ESS5 boundary
+            191, 192,           // ESS5/ESS6 boundary
+            223, 224,           // ESS6/ESS7 boundary
+            255, 256,           // ESS7/ESS8 boundary
+            287,                // last external source (ESS8[31])
+            40, 65, 80, 112,   // per-category: Flash/SRAM/Cache/CAN
+            132, 150, 200, 270 // per-category: EMS/GTM/SFC/Processor
         };
 
         `uvm_info("ERR_SRC", $sformatf("Testing %0d error sources...", src_ids.size()), UVM_NONE)
@@ -61,12 +63,9 @@ class ermu_error_src_test extends ermu_base_test;
             in_seq.start(env.virt_sqr.input_sqr);
             #5000;
 
-            // Verify ESS status
+            // Verify ESS status (with reserved-bit mask)
             env.reg_block.ESS[g].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
-            if (rd[k] != 1'b1)
-                `uvm_error("ERR_SRC", $sformatf("ID=%0d (group=%0d bit=%0d): ESS not set! ESS[%0d]=0x%08h", id, g, k, g, rd))
-            else
-                `uvm_info("ERR_SRC", $sformatf("ID=%0d: ESS set OK", id), UVM_HIGH)
+            check_ess_masked(g, k, rd);
 
             // Clear error
             env.reg_block.ESSC[g].write(st, 32'h1 << k, UVM_FRONTDOOR, env.reg_block.reg_map);

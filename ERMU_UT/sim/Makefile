@@ -332,8 +332,10 @@ regress: dirs
 	@echo "============================================================"
 	@echo " REGRESSION: $(words $(TESTS)) tests x $(words $(REGRESS_SEEDS)) seeds"
 	@echo " Total: $(shell echo $$(( $(words $(TESTS)) * $(words $(REGRESS_SEEDS)) ))) simulations"
+	@echo " (Ctrl+C to abort regression)"
 	@echo "============================================================"
-	@PASS=0; FAIL=0; TOTAL=0; \
+	@trap 'echo ""; echo "[ABORT] Regression interrupted by user"; exit 130' INT TERM; \
+	PASS=0; FAIL=0; TOTAL=0; \
 	for test in $(TESTS); do \
 		for seed in $(REGRESS_SEEDS); do \
 			TOTAL=$$((TOTAL + 1)); \
@@ -346,6 +348,10 @@ regress: dirs
 				-xmlibdirname xcelium.d/$${test}_s$${seed} \
 				> $(LOG_DIR)/$${test}_s$${seed}.stdout 2>&1; \
 			RC=$$?; \
+			if [ $$RC -eq 130 ]; then \
+				echo "[ABORT] Interrupted — stopping regression"; \
+				exit 130; \
+			fi; \
 			ERRS=$$(grep -E "UVM_ERROR.*@" $(LOG_DIR)/$${test}_s$${seed}.log 2>/dev/null | wc -l); \
 			FATS=$$(grep -E "UVM_FATAL.*@" $(LOG_DIR)/$${test}_s$${seed}.log 2>/dev/null | wc -l); \
 			if [ $$RC -ne 0 ] || [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ]; then \
@@ -368,7 +374,9 @@ regress: dirs
 .PHONY: regress_fast
 regress_fast: dirs
 	@echo "[REGRESS FAST] $(words $(TESTS)) tests x 1 seed"
-	@PASS=0; FAIL=0; \
+	@echo "(Ctrl+C to abort)"
+	@trap 'echo ""; echo "[ABORT] Regression interrupted"; exit 130' INT TERM; \
+	PASS=0; FAIL=0; \
 	for test in $(TESTS); do \
 		echo "--- $$test ---"; \
 		if $(MAKE) --no-print-directory test TEST=$$test SEED=$(REGRESS_SEED1) VERB=UVM_LOW; then \

@@ -13,7 +13,7 @@ class ermu_reg_test extends ermu_base_test;
     task run_phase(uvm_phase phase);
         uvm_status_e    st;
         uvm_reg_data_t  rd, wr_val;
-        int y, z, j, p;
+        int y, z, j, p, m;
 
         phase.raise_objection(this);
         wait_reset_release();
@@ -44,10 +44,11 @@ class ermu_reg_test extends ermu_base_test;
             check_reset($sformatf("EO%0dTTCNT", y), rd, 32'h0);
             env.reg_block.EOyTTCMP[y].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
             check_reset($sformatf("EO%0dTTCMP", y), rd, 32'h0);
-            env.reg_block.EOyOM0[y].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
-            check_reset($sformatf("EO%0dOM0", y), rd, 32'h0);
-            env.reg_block.EOyOM1[y].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
-            check_reset($sformatf("EO%0dOM1", y), rd, 32'h0);
+            // OM registers (0..8 per channel covering 288 sources)
+            for (m = 0; m < 9; m++) begin
+                env.reg_block.EOyOM[y][m].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+                check_reset($sformatf("EO%0dOM%0d", y, m), rd, 32'h0);
+            end
         end
 
         // WTz registers (z=0..1)
@@ -76,9 +77,13 @@ class ermu_reg_test extends ermu_base_test;
 
         // Global registers
         env.reg_block.EGC.read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
-        check_reset("EGC", rd, 32'h0);
+        check_reset("EGC", rd, 32'h1);  // HPIE_C0=1 default
         env.reg_block.CCPS.read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         check_reset("CCPS", rd, 32'h0);
+        env.reg_block.EMSC.read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        check_reset("EMSC", rd, 32'h0);
+        env.reg_block.EMSS.read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        check_reset("EMSS", rd, 32'h0);
         // ---- 2. Unlock CFGLOCK for RW tests ----
         env.reg_block.CFGLOCK.write(st, 32'h0000_BC00, UVM_FRONTDOOR, env.reg_block.reg_map);
         `uvm_info("REG_TEST", "CFGLOCK unlocked for RW tests", UVM_MEDIUM)
@@ -97,11 +102,11 @@ class ermu_reg_test extends ermu_base_test;
         env.reg_block.EOyTTCMP[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         check_rw("EO0TTCMP RW 0xAAAA", rd, 32'h0000_AAAA);
 
-        // Mask register: write all 1s
-        env.reg_block.EOyOM0[0].write(st, 32'hFFFF_FFFF, UVM_FRONTDOOR, env.reg_block.reg_map);
-        env.reg_block.EOyOM0[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        // Mask register: write all 1s (use OM0 of channel 0)
+        env.reg_block.EOyOM[0][0].write(st, 32'hFFFF_FFFF, UVM_FRONTDOOR, env.reg_block.reg_map);
+        env.reg_block.EOyOM[0][0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         check_rw("EO0OM0 RW all-1s", rd, 32'hFFFF_FFFF);
-        env.reg_block.EOyOM0[0].write(st, 32'h0, UVM_FRONTDOOR, env.reg_block.reg_map); // restore
+        env.reg_block.EOyOM[0][0].write(st, 32'h0, UVM_FRONTDOOR, env.reg_block.reg_map); // restore
 
         // ERCp: write all-1s, read back with reserved-bit mask (3b per source, 1b reserved)
         // 8 sources × 4 bits = 32 bits, reserved bits: 31,27,23,19,15,11,7,3 → mask 0x77777777
@@ -110,8 +115,8 @@ class ermu_reg_test extends ermu_base_test;
         check_rw("ERC0 RW all-1s (mask=0x77777777)", rd, 32'h7777_7777);
         env.reg_block.ERC[0].write(st, 32'h0, UVM_FRONTDOOR, env.reg_block.reg_map); // restore
 
-        // CCPS prescaler
-        wr_val = (32'h0080_0001);  // PSS[15:0]=0x80, PSE=1
+        // CCPS prescaler: PSC[23:16]=0x80, PSE[0]=1
+        wr_val = (32'h0080_0001);  // PSC=0x80 at [23:16], PSE=1 at [0]
         env.reg_block.CCPS.write(st, wr_val, UVM_FRONTDOOR, env.reg_block.reg_map);
         env.reg_block.CCPS.read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         check_rw("CCPS RW", rd, wr_val);

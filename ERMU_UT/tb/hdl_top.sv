@@ -44,12 +44,15 @@ module hdl_top;
     //  Reset Generation (All Active HIGH)
     // =====================================================================
     initial begin
+        // POR: all three asserted (cascade: pvs → pss_h2 → h2)
         clk_rst_if.rst_pvs_s    = 1'b1;
         clk_rst_if.rst_pss_h2_s = 1'b1;
         clk_rst_if.rst_h2_s     = 1'b1;
         repeat(RESET_HOLD_CYCLES) @(posedge clk_rst_if.pclk);
+        // Release order: pvs + pss_h2 first, h2 last
         clk_rst_if.rst_pvs_s    = 1'b0;
         clk_rst_if.rst_pss_h2_s = 1'b0;
+        repeat(2) @(posedge clk_rst_if.pclk);
         clk_rst_if.rst_h2_s     = 1'b0;
     end
 

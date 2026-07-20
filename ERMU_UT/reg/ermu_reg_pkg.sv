@@ -1,9 +1,9 @@
 // =============================================================================
 //  ERMU UVM Register Package
 //  Contains all register class definitions, reg_block, and reg2apb adapter
-//  ERMU base address: 0x4004_8800
+//  ERMU base address: 0x4006_2000 (C059 TS)
 //  288 error sources: 9 ESS/ESSC/PET groups (j=0~8), 36 ERCp groups (p=0~35)
-//  Wait timers: 2 (z=0~1), Error outputs: 4 (y=0~3)
+//  Wait timers: 2 (z=0~1), Error outputs: 4 (y=0~3), OM groups: 9 per channel
 // =============================================================================
 
 package ermu_reg_pkg;
@@ -14,7 +14,7 @@ package ermu_reg_pkg;
     // ==========================================================================
     //  Base Address
     // ==========================================================================
-    localparam bit [31:0] ERMU_BASE_ADDR = 32'h4004_8800;
+    localparam bit [31:0] ERMU_BASE_ADDR = 32'h4006_2000;
 
     // ==========================================================================
     //  Register: ERMU_EOyC — Error Output y Control Register
@@ -181,40 +181,23 @@ package ermu_reg_pkg;
     endclass : ermu_eoyttcmp_reg
 
     // ==========================================================================
-    //  Register: ERMU_EOyOM0 — Output Mask 0 (sources 0~31)
-    //  Offset: y × 0x0080 + 0x0040   Reset: 0x0000_0000
+    //  Register: ERMU_EOyOMj — Output Mask j (sources j*32 ~ j*32+31)
+    //  Offset: y × 0x0080 + j × 0x0004 + 0x0040   Reset: 0x0000_0000
+    //  j = 0..8 (9 groups per channel covering 288 error sources)
     // ==========================================================================
-    class ermu_eoyom0_reg extends uvm_reg;
-        `uvm_object_utils(ermu_eoyom0_reg)
+    class ermu_eoyom_reg extends uvm_reg;
+        `uvm_object_utils(ermu_eoyom_reg)
 
         rand uvm_reg_field OM;  // [31:0] Output mask bits, RW
 
-        function new(string name = "ermu_eoyom0_reg");
+        function new(string name = "ermu_eoyom_reg");
             super.new(name, 32, UVM_NO_COVERAGE);
         endfunction
         virtual function void build();
             OM = uvm_reg_field::type_id::create("OM");
             OM.configure(this, 32, 0, "RW", 0, 32'h0, 1, 1, 1);
         endfunction
-    endclass : ermu_eoyom0_reg
-
-    // ==========================================================================
-    //  Register: ERMU_EOyOM1 — Output Mask 1 (sources 32~63)
-    //  Offset: y × 0x0080 + 0x0044   Reset: 0x0000_0000
-    // ==========================================================================
-    class ermu_eoyom1_reg extends uvm_reg;
-        `uvm_object_utils(ermu_eoyom1_reg)
-
-        rand uvm_reg_field OM;  // [31:0] Output mask bits, RW
-
-        function new(string name = "ermu_eoyom1_reg");
-            super.new(name, 32, UVM_NO_COVERAGE);
-        endfunction
-        virtual function void build();
-            OM = uvm_reg_field::type_id::create("OM");
-            OM.configure(this, 32, 0, "RW", 0, 32'h0, 1, 1, 1);
-        endfunction
-    endclass : ermu_eoyom1_reg
+    endclass : ermu_eoyom_reg
 
     // ==========================================================================
     //  Register: ERMU_WTzC — Wait Timer z Control
@@ -223,7 +206,7 @@ package ermu_reg_pkg;
     class ermu_wtzc_reg extends uvm_reg;
         `uvm_object_utils(ermu_wtzc_reg)
 
-        rand uvm_reg_field STP;     // [16] Stop wait timer, RW
+        rand uvm_reg_field STP;     // [16] Stop wait timer, WO (read as 0)
         rand uvm_reg_field WTE;     // [0]  Wait Timer Enable, RW
         uvm_reg_field       RSVD;
 
@@ -234,7 +217,7 @@ package ermu_reg_pkg;
             RSVD = uvm_reg_field::type_id::create("RSVD_31_17");
             RSVD.configure(this, 15, 17, "RO", 0, 15'h0, 1, 0, 1);
             STP  = uvm_reg_field::type_id::create("STP");
-            STP.configure (this, 1,  16, "RW", 0, 1'b0,  1, 1, 1);
+            STP.configure (this, 1,  16, "WO", 0, 1'b0,  1, 1, 0); // WO: no read
             RSVD = uvm_reg_field::type_id::create("RSVD_15_1");
             RSVD.configure(this, 15, 1,  "RO", 0, 15'h0, 1, 0, 1);
             WTE  = uvm_reg_field::type_id::create("WTE");
@@ -306,26 +289,41 @@ package ermu_reg_pkg;
     // ==========================================================================
     //  Register: ERMU_WTzSE — Wait Timer z Start Enable
     //  Offset: z × 0x0020 + 0x0210   Reset: 0x0000_0000
+    //  HPIn[2:0] at [18:16]: HPI0/HPI1/HPI2 independent start enable
+    //  LPIn[2:0] at [2:0]:   LPI0/LPI1/LPI2 independent start enable
+    //  NOTE: DUT N_NUM=2, HPI2 (bit18) may not be implemented
     // ==========================================================================
     class ermu_wtzse_reg extends uvm_reg;
         `uvm_object_utils(ermu_wtzse_reg)
 
-        rand uvm_reg_field HPISE;   // [16] HPI start enable, RW
-        rand uvm_reg_field LPISE;   // [0]  LPI start enable, RW
+        rand uvm_reg_field HPI2;    // [18] HPI2 start enable (CPUSTBY, N/A when N_NUM=2)
+        rand uvm_reg_field HPI1;    // [17] HPI1 start enable (CPU1)
+        rand uvm_reg_field HPI0;    // [16] HPI0 start enable (CPU0)
+        rand uvm_reg_field LPI2;    // [2]  LPI2 start enable
+        rand uvm_reg_field LPI1;    // [1]  LPI1 start enable
+        rand uvm_reg_field LPI0;    // [0]  LPI0 start enable
         uvm_reg_field       RSVD;
 
         function new(string name = "ermu_wtzse_reg");
             super.new(name, 32, UVM_NO_COVERAGE);
         endfunction
         virtual function void build();
-            RSVD  = uvm_reg_field::type_id::create("RSVD_31_17");
-            RSVD.configure (this, 15, 17, "RO", 0, 15'h0, 1, 0, 1);
-            HPISE = uvm_reg_field::type_id::create("HPISE");
-            HPISE.configure(this, 1,  16, "RW", 0, 1'b0,  1, 1, 1);
-            RSVD  = uvm_reg_field::type_id::create("RSVD_15_1");
-            RSVD.configure (this, 15, 1,  "RO", 0, 15'h0, 1, 0, 1);
-            LPISE = uvm_reg_field::type_id::create("LPISE");
-            LPISE.configure(this, 1,  0,  "RW", 0, 1'b0,  1, 1, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_31_19");
+            RSVD.configure(this, 13, 19, "RO", 0, 13'h0, 1, 0, 1);
+            HPI2 = uvm_reg_field::type_id::create("HPI2");
+            HPI2.configure(this, 1, 18, "RW", 0, 1'b0, 1, 1, 1);
+            HPI1 = uvm_reg_field::type_id::create("HPI1");
+            HPI1.configure(this, 1, 17, "RW", 0, 1'b0, 1, 1, 1);
+            HPI0 = uvm_reg_field::type_id::create("HPI0");
+            HPI0.configure(this, 1, 16, "RW", 0, 1'b0, 1, 1, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_15_3");
+            RSVD.configure(this, 13, 3,  "RO", 0, 13'h0, 1, 0, 1);
+            LPI2 = uvm_reg_field::type_id::create("LPI2");
+            LPI2.configure(this, 1, 2,  "RW", 0, 1'b0, 1, 1, 1);
+            LPI1 = uvm_reg_field::type_id::create("LPI1");
+            LPI1.configure(this, 1, 1,  "RW", 0, 1'b0, 1, 1, 1);
+            LPI0 = uvm_reg_field::type_id::create("LPI0");
+            LPI0.configure(this, 1, 0,  "RW", 0, 1'b0, 1, 1, 1);
         endfunction
     endclass : ermu_wtzse_reg
 
@@ -385,30 +383,30 @@ package ermu_reg_pkg;
 
     // ==========================================================================
     //  Register: ERMU_EGC — Error Global Configuration
-    //  Offset: 0x04C0   Reset: 0x0000_0000
+    //  Offset: 0x04C0   Reset: 0x0000_0001 (HPIE_C0=1 by default)
     // ==========================================================================
     class ermu_egc_reg extends uvm_reg;
         `uvm_object_utils(ermu_egc_reg)
 
-        rand uvm_reg_field PSSRS;   // [19:16] Port Safe State Request Select
+        rand uvm_reg_field PSSRS;   // [25:16] Port Safe State Request Select (10bit)
         rand uvm_reg_field HPIE_C1; // [1]     HPI enable to cm7_core
-        rand uvm_reg_field HPIE_C0; // [0]     HPI enable to cm4_core
+        rand uvm_reg_field HPIE_C0; // [0]     HPI enable to cm4_core (default=1)
         uvm_reg_field       RSVD;
 
         function new(string name = "ermu_egc_reg");
             super.new(name, 32, UVM_NO_COVERAGE);
         endfunction
         virtual function void build();
-            RSVD = uvm_reg_field::type_id::create("RSVD_31_20");
-            RSVD.configure(this, 12, 20, "RO", 0, 12'h0, 1, 0, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_31_26");
+            RSVD.configure(this, 6, 26, "RO", 0, 6'h0, 1, 0, 1);
             PSSRS = uvm_reg_field::type_id::create("PSSRS");
-            PSSRS.configure(this, 4, 16, "RW", 0, 4'h0, 1, 1, 1);
+            PSSRS.configure(this, 10, 16, "RW", 0, 10'h0, 1, 1, 1);
             RSVD = uvm_reg_field::type_id::create("RSVD_15_2");
             RSVD.configure(this, 14, 2,  "RO", 0, 14'h0, 1, 0, 1);
             HPIE_C1 = uvm_reg_field::type_id::create("HPIE_C1");
             HPIE_C1.configure(this, 1, 1, "RW", 0, 1'b0, 1, 1, 1);
             HPIE_C0 = uvm_reg_field::type_id::create("HPIE_C0");
-            HPIE_C0.configure(this, 1, 0, "RW", 0, 1'b0, 1, 1, 1);
+            HPIE_C0.configure(this, 1, 0, "RW", 0, 1'b1, 1, 1, 1); // default=1
         endfunction
     endclass : ermu_egc_reg
 
@@ -473,11 +471,12 @@ package ermu_reg_pkg;
     // ==========================================================================
     //  Register: ERMU_CCPS — Counter Clock Pre-Scaler
     //  Offset: 0x0600   Reset: 0x0000_0000
+    //  CC_PSC[7:0] at [23:16]; fcntclk = fCNT_MCLK / (PSC+1)
     // ==========================================================================
     class ermu_ccps_reg extends uvm_reg;
         `uvm_object_utils(ermu_ccps_reg)
 
-        rand uvm_reg_field PSS;     // [31:16] Pre-scaler coefficient (CCPS_BW=8 → [23:16])
+        rand uvm_reg_field PSC;     // [23:16] Pre-scaler coefficient (CCPS_BW=8)
         rand uvm_reg_field PSE;     // [0]     Pre-scaler Enable
         uvm_reg_field       RSVD;
 
@@ -485,14 +484,77 @@ package ermu_reg_pkg;
             super.new(name, 32, UVM_NO_COVERAGE);
         endfunction
         virtual function void build();
-            PSS  = uvm_reg_field::type_id::create("PSS");
-            PSS.configure (this, 16, 16, "RW", 0, 16'h0, 1, 1, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_31_24");
+            RSVD.configure(this, 8, 24, "RO", 0, 8'h0, 1, 0, 1);
+            PSC  = uvm_reg_field::type_id::create("PSC");
+            PSC.configure (this, 8, 16, "RW", 0, 8'h0, 1, 1, 1);
             RSVD = uvm_reg_field::type_id::create("RSVD_15_1");
             RSVD.configure(this, 15, 1,  "RO", 0, 15'h0, 1, 0, 1);
             PSE  = uvm_reg_field::type_id::create("PSE");
             PSE.configure (this, 1,  0,  "RW", 0, 1'b0,  1, 1, 1);
         endfunction
     endclass : ermu_ccps_reg
+
+    // ==========================================================================
+    //  Register: ERMU_EMSC — Emergency Stop Control
+    //  Offset: 0x0604   Reset: 0x0000_0000
+    // ==========================================================================
+    class ermu_emsc_reg extends uvm_reg;
+        `uvm_object_utils(ermu_emsc_reg)
+
+        rand uvm_reg_field EMSEL;   // [21:20] EMS port selection: 00=EMSP0..11=EMSP3
+        rand uvm_reg_field EMSPOL;  // [18]    Polarity: 0=same, 1=inverted
+        rand uvm_reg_field EMSMOD;  // [17]    Mode: 0=sync, 1=async
+        rand uvm_reg_field EMSEN;   // [16]    EMS enable
+        rand uvm_reg_field EMSCLR;  // [1]     Clear EMS status, WO
+        rand uvm_reg_field EMSSET;  // [0]     Software trigger/set EMS, WO
+        uvm_reg_field       RSVD;
+
+        function new(string name = "ermu_emsc_reg");
+            super.new(name, 32, UVM_NO_COVERAGE);
+        endfunction
+        virtual function void build();
+            RSVD = uvm_reg_field::type_id::create("RSVD_31_22");
+            RSVD.configure(this, 10, 22, "RO", 0, 10'h0, 1, 0, 1);
+            EMSEL = uvm_reg_field::type_id::create("EMSEL");
+            EMSEL.configure(this, 2, 20, "RW", 0, 2'h0, 1, 1, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_19");
+            RSVD.configure(this, 1, 19, "RO", 0, 1'b0, 1, 0, 1);
+            EMSPOL = uvm_reg_field::type_id::create("EMSPOL");
+            EMSPOL.configure(this, 1, 18, "RW", 0, 1'b0, 1, 1, 1);
+            EMSMOD = uvm_reg_field::type_id::create("EMSMOD");
+            EMSMOD.configure(this, 1, 17, "RW", 0, 1'b0, 1, 1, 1);
+            EMSEN = uvm_reg_field::type_id::create("EMSEN");
+            EMSEN.configure(this, 1, 16, "RW", 0, 1'b0, 1, 1, 1);
+            RSVD = uvm_reg_field::type_id::create("RSVD_15_2");
+            RSVD.configure(this, 14, 2, "RO", 0, 14'h0, 1, 0, 1);
+            EMSCLR = uvm_reg_field::type_id::create("EMSCLR");
+            EMSCLR.configure(this, 1, 1, "WO", 0, 1'b0, 1, 1, 0); // WO
+            EMSSET = uvm_reg_field::type_id::create("EMSSET");
+            EMSSET.configure(this, 1, 0, "WO", 0, 1'b0, 1, 1, 0); // WO
+        endfunction
+    endclass : ermu_emsc_reg
+
+    // ==========================================================================
+    //  Register: ERMU_EMSS — Emergency Stop Status
+    //  Offset: 0x0608   Reset: 0x0000_0000
+    // ==========================================================================
+    class ermu_emss_reg extends uvm_reg;
+        `uvm_object_utils(ermu_emss_reg)
+
+        uvm_reg_field EMSS;     // [0] EMS input status: 0=not involved, 1=involved
+        uvm_reg_field RSVD;
+
+        function new(string name = "ermu_emss_reg");
+            super.new(name, 32, UVM_NO_COVERAGE);
+        endfunction
+        virtual function void build();
+            RSVD = uvm_reg_field::type_id::create("RSVD_31_1");
+            RSVD.configure(this, 31, 1, "RO", 0, 31'h0, 1, 0, 1);
+            EMSS = uvm_reg_field::type_id::create("EMSS");
+            EMSS.configure(this, 1, 0, "RO", 0, 1'b0, 1, 1, 0);
+        endfunction
+    endclass : ermu_emss_reg
 
     // ==========================================================================
     //  Register: ERMU_CFGLOCK — Configuration Lock Register
@@ -558,7 +620,23 @@ package ermu_reg_pkg;
         localparam int NUM_EO_CHANNELS = 4;   // y = 0..3
         localparam int NUM_WT_TIMERS  = 2;   // z = 0..1
         localparam int NUM_ESS_GROUPS = 9;   // j = 0..8 (288/32)
+        localparam int NUM_OM_GROUPS  = 9;   // j = 0..8 (288/32 masks per channel)
         localparam int NUM_ERC_GROUPS = 36;  // p = 0..35 (288/8)
+
+        // ---- ESS valid-source masks (1=implemented, 0=reserved) ----
+        //  Based on C059 TS Table 18-10: Error sources for ERMU0
+        //  Reserved bits always read 0; used to filter ESS read expectations
+        localparam bit [31:0] ESS_VALID_MASK [9] = '{
+            32'h0FFF_1F03,  // ESS0: ID 0-1,8-12,16-27 (IDs 2-7,13-15,28-31 reserved)
+            32'h0000_0000,  // ESS1: ID 32-63 ALL RESERVED
+            32'h0306_070F,  // ESS2: ID 64-67,72-74,81-82,88-89
+            32'h7337_7777,  // ESS3: ID 96-98,100-102,104-106,108-110,112-114,116-117,120-121,124-126
+            32'h0000_811F,  // ESS4: ID 128-132,136,143 (IDs 133-135,137-142,144-159 reserved)
+            32'hFFFF_FFFF,  // ESS5: ID 160-191 ALL IMPLEMENTED (SFC_BEDE0-31)
+            32'h0000_0FFF,  // ESS6: ID 192-203 (IDs 204-223 reserved)
+            32'h0000_0000,  // ESS7: ID 224-255 ALL RESERVED
+            32'h007F_007F   // ESS8: ID 256-262,272-278 (IDs 263-271,279-287 reserved)
+        };
 
         // ---- EOy Channel register arrays ----
         ermu_eoyc_reg       EOyC       [NUM_EO_CHANNELS];
@@ -568,8 +646,7 @@ package ermu_reg_pkg;
         ermu_eoyttc_reg     EOyTTC     [NUM_EO_CHANNELS];
         ermu_eoyttcnt_reg   EOyTTCNT   [NUM_EO_CHANNELS];
         ermu_eoyttcmp_reg   EOyTTCMP   [NUM_EO_CHANNELS];
-        ermu_eoyom0_reg     EOyOM0     [NUM_EO_CHANNELS];
-        ermu_eoyom1_reg     EOyOM1     [NUM_EO_CHANNELS];
+        ermu_eoyom_reg      EOyOM      [NUM_EO_CHANNELS][NUM_OM_GROUPS];
 
         // ---- WTz Timer register arrays ----
         ermu_wtzc_reg       WTzC       [NUM_WT_TIMERS];
@@ -589,6 +666,8 @@ package ermu_reg_pkg;
         // ---- Global registers ----
         ermu_egc_reg        EGC;
         ermu_ccps_reg       CCPS;
+        ermu_emsc_reg       EMSC;
+        ermu_emss_reg       EMSS;
         ermu_cfglock_reg    CFGLOCK;
         ermu_perlock_reg    PERLOCK;
 
@@ -600,7 +679,7 @@ package ermu_reg_pkg;
         endfunction
 
         virtual function void build();
-            int y, z, j, p;
+            int y, z, j, p, m;
 
             // ---- Create default map ----
             reg_map = create_map("reg_map", 'h0, 4, UVM_LITTLE_ENDIAN);
@@ -615,8 +694,6 @@ package ermu_reg_pkg;
                 EOyTTC[y]     = ermu_eoyttc_reg  ::type_id::create({"EO", s, "TTC"});
                 EOyTTCNT[y]   = ermu_eoyttcnt_reg::type_id::create({"EO", s, "TTCNT"});
                 EOyTTCMP[y]   = ermu_eoyttcmp_reg::type_id::create({"EO", s, "TTCMP"});
-                EOyOM0[y]     = ermu_eoyom0_reg  ::type_id::create({"EO", s, "OM0"});
-                EOyOM1[y]     = ermu_eoyom1_reg  ::type_id::create({"EO", s, "OM1"});
 
                 EOyC[y].configure    (this);
                 EOyS[y].configure    (this);
@@ -625,8 +702,6 @@ package ermu_reg_pkg;
                 EOyTTC[y].configure  (this);
                 EOyTTCNT[y].configure(this);
                 EOyTTCMP[y].configure(this);
-                EOyOM0[y].configure  (this);
-                EOyOM1[y].configure  (this);
 
                 EOyC[y].build    ();
                 EOyS[y].build    ();
@@ -635,8 +710,14 @@ package ermu_reg_pkg;
                 EOyTTC[y].build  ();
                 EOyTTCNT[y].build();
                 EOyTTCMP[y].build();
-                EOyOM0[y].build  ();
-                EOyOM1[y].build  ();
+
+                // EOyOMj (j=0..8 per channel)
+                for (m = 0; m < NUM_OM_GROUPS; m++) begin
+                    string ms; ms.itoa(m);
+                    EOyOM[y][m] = ermu_eoyom_reg::type_id::create({"EO", s, "OM", ms});
+                    EOyOM[y][m].configure(this);
+                    EOyOM[y][m].build();
+                end
             end
 
             // ---- WTz Timers (z = 0..1) ----
@@ -688,17 +769,21 @@ package ermu_reg_pkg;
             // ---- Global registers ----
             EGC      = ermu_egc_reg     ::type_id::create("EGC");
             CCPS     = ermu_ccps_reg    ::type_id::create("CCPS");
+            EMSC     = ermu_emsc_reg    ::type_id::create("EMSC");
+            EMSS     = ermu_emss_reg    ::type_id::create("EMSS");
             CFGLOCK  = ermu_cfglock_reg ::type_id::create("CFGLOCK");
             PERLOCK  = ermu_perlock_reg ::type_id::create("PERLOCK");
 
             EGC.configure     (this); EGC.build();
             CCPS.configure    (this); CCPS.build();
+            EMSC.configure    (this); EMSC.build();
+            EMSS.configure    (this); EMSS.build();
             CFGLOCK.configure (this); CFGLOCK.build();
             PERLOCK.configure (this); PERLOCK.build();
 
             // ==============================================================
             //  Register Map — Add registers with their offsets
-            //  Base address offset from ERMU_BASE_ADDR (0x4004_8800)
+            //  Base address offset from ERMU_BASE_ADDR (0x4006_2000)
             // ==============================================================
 
             // ---- EOy Channels (y=0..3, stride = 0x0080) ----
@@ -710,8 +795,10 @@ package ermu_reg_pkg;
                 reg_map.add_reg(EOyTTC[y],     y * 12'h080 + 12'h010, "RW");
                 reg_map.add_reg(EOyTTCNT[y],   y * 12'h080 + 12'h014, "RO");
                 reg_map.add_reg(EOyTTCMP[y],   y * 12'h080 + 12'h018, "RW");
-                reg_map.add_reg(EOyOM0[y],     y * 12'h080 + 12'h040, "RW");
-                reg_map.add_reg(EOyOM1[y],     y * 12'h080 + 12'h044, "RW");
+                // EOyOMj (j=0..8): y*0x80 + j*0x04 + 0x40
+                for (m = 0; m < NUM_OM_GROUPS; m++) begin
+                    reg_map.add_reg(EOyOM[y][m], y * 12'h080 + m * 12'h004 + 12'h040, "RW");
+                end
             end
 
             // ---- WTz Timers (z=0..1, stride = 0x0020) ----
@@ -741,6 +828,10 @@ package ermu_reg_pkg;
             // ---- CCPS ----
             reg_map.add_reg(CCPS, 12'h600, "RW");
 
+            // ---- EMSC / EMSS ----
+            reg_map.add_reg(EMSC, 12'h604, "RW");
+            reg_map.add_reg(EMSS, 12'h608, "RO");
+
             // ---- CFGLOCK / PERLOCK ----
             reg_map.add_reg(CFGLOCK, 12'h700, "RW");
             reg_map.add_reg(PERLOCK, 12'h704, "RW");
@@ -748,6 +839,20 @@ package ermu_reg_pkg;
             // ---- Lock the model ----
             lock_model();
         endfunction : build
+
+        // ---- Helper: check if a source ID is implemented (non-reserved) ----
+        function bit is_valid_source(int src_id);
+            int j = src_id / 32;
+            int k = src_id % 32;
+            if (j < 0 || j >= NUM_ESS_GROUPS) return 1'b0;
+            return ESS_VALID_MASK[j][k];
+        endfunction
+
+        // ---- Helper: get ESS valid mask for a group ----
+        function bit [31:0] get_ess_mask(int group);
+            if (group < 0 || group >= NUM_ESS_GROUPS) return 32'h0;
+            return ESS_VALID_MASK[group];
+        endfunction
 
         // ---- Helper: unlock CFGLOCK (required before any config write) ----
         virtual task unlock_cfglock();

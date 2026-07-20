@@ -1,8 +1,10 @@
 // =============================================================================
 //  ERMU Error Source Input Interface
-//  284 external error source signals: err_src_id[283:0]
-//  Internal WT errors (ID 284~287) are generated inside DUT
-//  Asserting err_src_id[i]=1 indicates error source i is active
+//  280 external error source signals: err_src_id[279:0]
+//  ID mapping: err_src_id[i] → real error ID = i + 8 (driver handles offset)
+//    err_src_id[0]   → ID=8  (WDT0_ERR) → ESS0[8]
+//    err_src_id[279] → ID=287           → ESS8[31]
+//  Internal errors ID 0~7 (WT timeout, reserved) are NOT on this bus
 // =============================================================================
 
 interface ermu_error_in_if(input logic clk_hrc);

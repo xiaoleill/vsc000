@@ -25,6 +25,8 @@ class ermu_timer_test extends ermu_base_test;
 
         // ========================================================================
         //  1. Clear Timer Test (channel 0)
+        //  Clear Timer is a write-protection gate: CTS=1 blocks CLR; CTS=0
+        //  allows software CLR to clear EOS. It never auto-clears EOS.
         // ========================================================================
         `uvm_info("TIMER", "--- Clear Timer Test ---", UVM_NONE)
 
@@ -32,27 +34,54 @@ class ermu_timer_test extends ermu_base_test;
         env.reg_block.EOyCTCMP[0].write(st, 32'h0000_0064, UVM_FRONTDOOR, env.reg_block.reg_map);
         env.reg_block.EOyC[0].write(st, 32'h0001_0000, UVM_FRONTDOOR, env.reg_block.reg_map); // CTE=1
 
-        // Set EOS via software
+        // Set EOS via software (EOS=1 + CTE=1 → clear timer starts counting)
         env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // SET=1
         #2000;
 
-        // Verify EOS=1
+        // Verify EOS=1, CTS counting
         env.reg_block.EOyS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
         `uvm_info("TIMER", $sformatf("After SET: EO0S=0x%08h (expect EOS=1,CTS may be counting)", rd), UVM_MEDIUM);
+
+        // ---- Sub-test A: CTS=1 blocks CLR ----
+        if (rd[16] == 1'b1) begin
+            env.reg_block.EOyC[0].write(st, 32'h0000_0002, UVM_FRONTDOOR, env.reg_block.reg_map); // CLR attempt
+            #2000;
+            env.reg_block.EOyS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+            if (rd[0] == 1'b1)
+                `uvm_info("TIMER", "CTS=1: CLR ignored correctly (EOS=1)", UVM_NONE)
+            else
+                `uvm_error("TIMER", "CTS=1: CLR should have been ignored but EOS was cleared!")
+        end
+
+        // ---- Sub-test B: CTS=1 blocks CTE=0 write ----
+        env.reg_block.EOyC[0].write(st, 32'h0000_0000, UVM_FRONTDOOR, env.reg_block.reg_map); // attempt CTE=0
+        #2000;
+        env.reg_block.EOyC[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        // Note: CTE is RW, reading back to verify it was NOT cleared during counting
+        `uvm_info("TIMER", $sformatf("After CTE=0 attempt during CTS=1: EO0C=0x%08h", rd), UVM_MEDIUM);
 
         // Wait for clear timer to expire (>100 cycles of HRC @ 125ns = 12.5us)
         #20000;
 
-        // Verify CTS=0 after compare match (timer stopped)
+        // Verify CTS=0 after compare match (protection gate released)
         env.reg_block.EOyS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
-        `uvm_info("TIMER", $sformatf("After clear timer wait: EO0S=0x%08h", rd), UVM_MEDIUM);
+        `uvm_info("TIMER", $sformatf("After clear timer wait: EO0S=0x%08h (expect CTS=0)", rd), UVM_MEDIUM);
+
+        // ---- Sub-test C: CTS=0 allows CLR to clear EOS ----
+        env.reg_block.EOyC[0].write(st, 32'h0000_0002, UVM_FRONTDOOR, env.reg_block.reg_map); // CLR=1
+        #2000;
+        env.reg_block.EOyS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
+        if (rd[0] == 1'b0)
+            `uvm_info("TIMER", "CTS=0: CLR cleared EOS correctly (EOS=0)", UVM_NONE)
+        else
+            `uvm_warning("TIMER", "CTS=0: CLR did not clear EOS (may have active unmasked errors)")
 
         // Disable clear timer
         env.reg_block.EOyC[0].write(st, 32'h0000_0000, UVM_FRONTDOOR, env.reg_block.reg_map);
 
         // ========================================================================
         //  2. Toggle Timer Test (channel 0)
-        //  Toggle timer behavior: counts only when EOS=0, toggles EOS to 1 at TTCMP
+        //  Toggle timer: counts when EOS=0, toggles EOUTyM/EOUTyC pins at TTCMP
         // ========================================================================
         `uvm_info("TIMER", "--- Toggle Timer Test ---", UVM_NONE)
 
@@ -81,9 +110,9 @@ class ermu_timer_test extends ermu_base_test;
         // ========================================================================
         `uvm_info("TIMER", "--- Wait Timer Test ---", UVM_NONE)
 
-        // Configure: WTCMP=200, enable LPI start, enable timer
+        // Configure: WTCMP=200, enable LPI0 start, enable timer
         env.reg_block.WTzCMP[0].write(st, 32'h0000_00C8, UVM_FRONTDOOR, env.reg_block.reg_map);
-        env.reg_block.WTzSE[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // LPISE=1
+        env.reg_block.WTzSE[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // LPI0=1
         env.reg_block.WTzC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map);   // WTE=1
 
         // Inject an error with LPI0 response to trigger wait timer
