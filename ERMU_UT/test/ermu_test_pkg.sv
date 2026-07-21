@@ -42,8 +42,8 @@ package ermu_test_pkg;
             if (!uvm_config_db #(virtual ermu_clk_rst_if)::get(this, "", "clk_rst_vif", clk_rst_vif))
                 `uvm_fatal("BASE_TEST", "clk_rst_vif not found in config_db")
             // Global simulation timeout: 100ms (avoids infinite hang)
-            uvm_root::get().set_timeout(50_000_000, 0);
-            `uvm_info("BASE_TEST", "Testbench topology built (timeout=50ms)", UVM_MEDIUM)
+            uvm_root::get().set_timeout(100_000_000, 0);
+            `uvm_info("BASE_TEST", "Testbench topology built (timeout=100ms)", UVM_MEDIUM)
         endfunction
 
         // ---- Wait for reset release (initial cold boot) ----

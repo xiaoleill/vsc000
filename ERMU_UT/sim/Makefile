@@ -5,11 +5,9 @@
 # =============================================================================
 
 # ---- Tool Configuration ----
-XRUN      ?= xrun
-IMC       ?= imc
+XRUN      ?= bsub -Ip xrun
+IMC       ?= bsub -Ip imc
 UVMHOME   ?= CDNS-1.2
-VERDI_HOME ?= /eda/synopsys/verdi
-PLI_LIB    ?= $(VERDI_HOME)/share/PLI/IUS/linux64/boot/debpli.so
 
 # ---- Project Paths (relative to sim/) ----
 SCRIPTS_DIR  = ../scripts
@@ -25,7 +23,8 @@ TOP_MODULE   = hdl_top
 TIMESCALE    = 1ns/10ps
 XRUN_OPTS    = -f $(COMPILE_F) -uvmhome $(UVMHOME) -uvm \
                -top $(TOP_MODULE) -timescale $(TIMESCALE) \
-               -linedebug -access +rwc -assert -nowarn UEXPSC
+               -linedebug -access +rwc -assert \
+               -nowarn UEXPSC -nohistory
 
 # ---- Test List (all 16 tests) ----
 TESTS = ermu_smoke_test       \
@@ -94,7 +93,7 @@ help:
 	@echo "   make test TEST=name VERB=UVM_DEBUG : Run with max verbosity"
 	@echo "   make test TEST=name GUI=1 : Run with SimVision GUI"
 	@echo "   make wave TEST=name : Run with SHM waveform (SimVision)"
-	@echo "   make wave_fsdb TEST=name : Run with FSDB waveform (Verdi)"
+	@echo "   make wave_fsdb TEST=name : Run with FSDB waveform"
 	@echo ""
 	@echo " Regression:"
 	@echo "   make regress        : Run all tests x 5 seeds (80 simulations)"
@@ -224,26 +223,17 @@ test: dirs
 wave:
 	@$(MAKE) test TEST=$(TEST) DUMP=1 SEED=$(SEED) VERB=$(VERB)
 
-# ---- FSDB waveform (Verdi PLI required) ----
-# Prerequisite: export VERDI_HOME=/path/to/verdi
+# ---- FSDB waveform (Verdi PLI configured in environment) ----
 .PHONY: wave_fsdb
 wave_fsdb: dirs
-	@if [ -z "$(VERDI_HOME)" ]; then \
-		echo "[ERROR] VERDI_HOME not set. Export it first:"; \
-		echo "        export VERDI_HOME=/path/to/verdi_install"; \
-		exit 1; \
-	fi
 	@echo "[WAVE_FSDB] Running $(TEST) with FSDB dump..."
-	@export LD_LIBRARY_PATH=$(VERDI_HOME)/share/PLI/IUS/linux64/boot:$$LD_LIBRARY_PATH; \
-	$(XRUN) $(XRUN_OPTS) \
+	@$(XRUN) $(XRUN_OPTS) \
 		+UVM_TESTNAME=$(TEST) \
 		+UVM_VERBOSITY=$(VERB) \
 		-seed $(SEED) \
-		-loadpli1 debpli:novas_pli_boot \
 		-input $(SCRIPTS_DIR)/dump_fsdb.tcl \
 		-log $(LOG_DIR)/$(TEST)_fsdb.log 2>&1
 	@echo "[WAVE_FSDB] Done: waves/ermu.fsdb"
-	@echo "  Open with: verdi -ssf waves/ermu.fsdb &"
 
 # ==============================================================================
 #  PHASE 1: Sanity & Register Tests
@@ -346,7 +336,7 @@ regress: dirs
 				-seed $$seed \
 				-log $(LOG_DIR)/$${test}_s$${seed}.log \
 				-xmlibdirname xcelium.d/$${test}_s$${seed} \
-				> $(LOG_DIR)/$${test}_s$${seed}.stdout 2>&1; \
+				> $(LOG_DIR)/$${test}_s$${seed}.log 2>&1; \
 			RC=$$?; \
 			if [ $$RC -eq 130 ]; then \
 				echo "[ABORT] Interrupted — stopping regression"; \
@@ -355,7 +345,7 @@ regress: dirs
 			ERRS=$$(grep -E "UVM_ERROR.*@" $(LOG_DIR)/$${test}_s$${seed}.log 2>/dev/null | wc -l); \
 			FATS=$$(grep -E "UVM_FATAL.*@" $(LOG_DIR)/$${test}_s$${seed}.log 2>/dev/null | wc -l); \
 			if [ $$RC -ne 0 ] || [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ]; then \
-				echo "  => FAILED (exit=$$RC, errors=$$ERRS, fatals=$$FATS)"; \
+				echo "  => FAILED (exit=$$RC, E=$$ERRS F=$$FATS)"; \
 				FAIL=$$((FAIL + 1)); \
 			else \
 				echo "  => PASSED"; \
@@ -444,14 +434,15 @@ check:
 	@echo " Checking all simulation logs for errors..."
 	@echo "============================================================"
 	@TOTAL=0; PASS=0; FAIL=0; \
-	for log in $(LOG_DIR)/*.log; do \
+	for log in $(LOG_DIR)/*_s*.log; do \
 		[ -f "$$log" ] || continue; \
 		TOTAL=$$((TOTAL + 1)); \
 		NAME=$$(basename $$log .log); \
 		ERRS=$$(grep -E "UVM_ERROR.*@" $$log 2>/dev/null | wc -l); \
 		FATS=$$(grep -E "UVM_FATAL.*@" $$log 2>/dev/null | wc -l); \
-		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ]; then \
-			echo "  [FAIL] $$NAME (errors=$$ERRS, fatals=$$FATS)"; \
+		XRUN=$$(grep -E "xmsim: \*E," $$log 2>/dev/null | wc -l); 
+		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ] || [ "$$XRUN" -gt 0 ]; then \
+			echo "  [FAIL] $$NAME (E=$$ERRS F=$$FATS X=$$XRUN)"; \
 			FAIL=$$((FAIL + 1)); \
 		else \
 			echo "  [PASS] $$NAME"; \
@@ -465,22 +456,24 @@ check:
 .PHONY: check_fail
 check_fail:
 	@echo "=== FAILING TESTS ==="
-	@for log in $(LOG_DIR)/*.log; do \
+	@for log in $(LOG_DIR)/*_s*.log; do \
 		[ -f "$$log" ] || continue; \
 		NAME=$$(basename $$log .log); \
 		ERRS=$$(grep -E "UVM_ERROR.*@" $$log 2>/dev/null | wc -l); \
 		FATS=$$(grep -E "UVM_FATAL.*@" $$log 2>/dev/null | wc -l); \
-		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ]; then \
+		XRUN=$$(grep -E "xmsim: \*E," $$log 2>/dev/null | wc -l); 
+		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ] || [ "$$XRUN" -gt 0 ]; then \
 			echo ""; \
 			echo "--- $$NAME (errors=$$ERRS, fatals=$$FATS) ---"; \
-			grep -nE "UVM_ERROR|UVM_FATAL" $$log; \
+			grep -nE "UVM_ERROR|UVM_FATAL" $$log; 
+			grep -nE "xmsim: \*E," $$log 2>/dev/null; \
 		fi; \
 	done
 
 .PHONY: check_pass
 check_pass:
 	@echo "=== PASSING TESTS ==="
-	@for log in $(LOG_DIR)/*.log; do \
+	@for log in $(LOG_DIR)/*_s*.log; do \
 		[ -f "$$log" ] || continue; \
 		NAME=$$(basename $$log .log); \
 		ERRS=$$(grep -E "UVM_ERROR.*@" $$log 2>/dev/null | wc -l); \
@@ -492,22 +485,19 @@ check_pass:
 
 .PHONY: summary
 summary:
-	@echo "============================================================"
-	@echo "              ERMU UVM Regression Summary"
-	@echo "============================================================"
-	@printf "%-40s %-10s %-8s %-8s %s\n" "TEST" "SEED" "ERRORS" "FATALS" "RESULT"
-	@echo "---------------------------------------------------------------------------"
-	@for log in $(LOG_DIR)/*.log; do \
+	@printf "    %-28s %-6s %-5s %-6s %-5s %s\n" "TEST" "SEED" "ERRS" "FATALS" "XRUN" "RESULT"
+	@echo "    -------------------------------------------------------"
+	@for log in $(LOG_DIR)/*_s*.log; do \
 		[ -f "$$log" ] || continue; \
 		FULL=$$(basename $$log .log); \
 		TEST=$$(echo $$FULL | sed 's/_s[0-9]*$$//'); \
 		SEED=$$(echo $$FULL | grep -oE 's[0-9]+$$' | sed 's/s//'); \
 		ERRS=$$(grep -E "UVM_ERROR.*@" $$log 2>/dev/null | wc -l); \
 		FATS=$$(grep -E "UVM_FATAL.*@" $$log 2>/dev/null | wc -l); \
-		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ]; then \
-			printf "%-40s %-10s %-8s %-8s \033[31m%s\033[0m\n" "$$TEST" "$$SEED" "$$ERRS" "$$FATS" "FAIL"; \
+		XRUN=$$(grep -E "xmsim: \*E," $$log 2>/dev/null | wc -l); \
+		if [ "$$ERRS" -gt 0 ] || [ "$$FATS" -gt 0 ] || [ "$$XRUN" -gt 0 ]; then \
+			printf "    %-28s %-6s %-5s %-6s %-5s \033[31m%s\033[0m\n" "$$TEST" "$$SEED" "$$ERRS" "$$FATS" "$$XRUN" "FAIL"; \
 		else \
-			printf "%-40s %-10s %-8s %-8s \033[32m%s\033[0m\n" "$$TEST" "$$SEED" "$$ERRS" "$$FATS" "PASS"; \
+			printf "    %-28s %-6s %-5s %-6s %-5s \033[32m%s\033[0m\n" "$$TEST" "$$SEED" "$$ERRS" "$$FATS" "$$XRUN" "PASS"; \
 		fi; \
 	done
-	@echo "---------------------------------------------------------------------------"

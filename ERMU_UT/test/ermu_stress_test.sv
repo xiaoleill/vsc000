@@ -30,8 +30,8 @@ class ermu_stress_test extends ermu_base_test;
         //  Random error injection loop (100 iterations)
         // ====================================================================
         for (int iter = 0; iter < 100; iter++) begin
-            src_id = ($random + iter * 173) % 280 + 8;  // valid external IDs: 8~287
-            erc_idx = ($random + iter) % 5;
+            src_id = $urandom_range(8, 287);  // valid external IDs only
+            erc_idx = $urandom_range(0, 4);
             erc_val = (erc_idx == 0) ? 0 : (erc_idx == 1) ? 2 :
                       (erc_idx == 2) ? 3 : (erc_idx == 3) ? 4 : 5;
 
@@ -39,10 +39,10 @@ class ermu_stress_test extends ermu_base_test;
             env.reg_block.ERC[src_id/8].write(st, erc_val << ((src_id % 8) * 4), UVM_FRONTDOOR, env.reg_block.reg_map);
 
             // Inject error
-            inject_error(src_id, ($random % 10) + 1);
+            inject_error(src_id, $urandom_range(1, 10));
 
             // Random delay
-            #(($random % 1000) + 100);
+            #($urandom_range(100, 1099));
 
             // Occasionally read ESS and clear
             if ((iter % 10) == 0) begin
