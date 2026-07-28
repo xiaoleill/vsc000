@@ -1,0 +1,178 @@
+{
+  "_comment": "Synonym equivalence rules for WP document matching.",
+  "_usage": "Each group defines tokens that are equivalent during keyword→filename matching. When any token in a group appears in a keyword, it can match any other token from the same group in a filename (and vice versa). The optional 'pattern' field provides a regex for additional flexibility — if either token matches the group's regex, synonym matching applies.",
+
+  "groups": [
+    {
+      "name": "flash_memory",
+      "description": "Embedded Flash memory (EFM/FLASH/FMC/DFMC)",
+      "tokens": ["efm", "flash", "fmc", "dfmc"]
+    },
+    {
+      "name": "can_bus",
+      "description": "CAN bus protocol family (CAN / CAN-FD / MCAN)",
+      "tokens": ["can", "can-fd", "mcan"]
+    },
+    {
+      "name": "cpu_core",
+      "description": "CPU Core variants (Core / Cortex-M0 / Cortex-M4 / Cortex-M7)",
+      "tokens": ["core", "cortex-m0", "cortex-m4", "cortex-m7", "cortex"]
+    },
+    {
+      "name": "gpio_port",
+      "description": "General Purpose I/O (GPIO = PORT)",
+      "tokens": ["gpio", "port"]
+    },
+    {
+      "name": "timer_variants",
+      "description": "Timer naming variants (Timer4/TMR4/TIM4, Timer2/TMR2/TIM2, etc.)",
+      "tokens": ["timer4", "tmr4", "tim4", "timer2", "tmr2", "tim2",
+                  "timer0", "tmr0", "tim0", "timera", "tmra"]
+    },
+    {
+      "name": "watchdog",
+      "description": "Watchdog timer (SWDT / WDT / WDTSWDT)",
+      "tokens": ["swdt", "wdt", "wdtswdt"]
+    },
+    {
+      "name": "dma",
+      "description": "Direct Memory Access (DMA = DMAC)",
+      "tokens": ["dma", "dmac"]
+    },
+    {
+      "name": "bus",
+      "description": "Bus system (BUS = BUSsystem)",
+      "tokens": ["bus", "bussystem"]
+    },
+    {
+      "name": "sram",
+      "description": "SRAM / RAM",
+      "tokens": ["sram", "ram"]
+    },
+    {
+      "name": "i2c",
+      "description": "I2C bus (I2C = IIC)",
+      "tokens": ["i2c", "iic"]
+    },
+    {
+      "name": "usart",
+      "description": "USART / UART serial",
+      "tokens": ["usart", "uart"]
+    },
+    {
+      "name": "cmu",
+      "description": "Clock Management Unit (CMU)",
+      "tokens": ["cmu"]
+    },
+    {
+      "name": "crc",
+      "description": "CRC calculation unit",
+      "tokens": ["crc"]
+    },
+    {
+      "name": "pwc",
+      "description": "Power Control (PWC)",
+      "tokens": ["pwc"]
+    },
+    {
+      "name": "rmu",
+      "description": "Reset Management Unit (RMU)",
+      "tokens": ["rmu"]
+    },
+    {
+      "name": "intc",
+      "description": "Interrupt Controller (INTC)",
+      "tokens": ["intc","ir"]
+    },
+    {
+      "name": "adc",
+      "description": "Analog-to-Digital Converter (ADC)",
+      "tokens": ["adc"]
+    },
+    {
+      "name": "cmp",
+      "description": "Voltage Comparator (CMP)",
+      "tokens": ["cmp"]
+    },
+    {
+      "name": "spi",
+      "description": "Serial Peripheral Interface (SPI)",
+      "tokens": ["spi"]
+    },
+    {
+      "name": "rtc",
+      "description": "Real-Time Clock (RTC)",
+      "tokens": ["rtc"]
+    },
+    {
+      "name": "icg",
+      "description": "Initial Configuration (ICG)",
+      "tokens": ["icg"]
+    },
+    {
+      "name": "emb",
+      "description": "Emergency Brake Module (EMB)",
+      "tokens": ["emb"]
+    },
+    {
+      "name": "aos",
+      "description": "Automatic Operation System (AOS)",
+      "tokens": ["aos"]
+    },
+    {
+      "name": "ctc",
+      "description": "Clock Trimming Controller (CTC)",
+      "tokens": ["ctc"]
+    },
+    {
+      "name": "dbgc",
+      "description": "Debug Controller (DBGC)",
+      "tokens": ["dbgc"]
+    },
+    {
+      "name": "ots",
+      "description": "OTS (test-related)",
+      "tokens": ["ots"]
+    },
+    {
+      "name": "mbist",
+      "description": "Memory BIST",
+      "tokens": ["mbist"]
+    },
+    {
+      "name": "cache",
+      "description": "Cache memory",
+      "tokens": ["cache"]
+    },
+    {
+      "name": "peric",
+      "description": "Peripheral Interconnect",
+      "tokens": ["peric"]
+    },
+    {
+      "name": "sramif",
+      "description": "SRAM Interface",
+      "tokens": ["sramif"]
+    },
+    {
+      "name": "modc",
+      "description": "Module C",
+      "tokens": ["modc"]
+    },
+    {
+      "name": "fcm",
+      "description": "Frequency Calibration Module (FCM)",
+      "tokens": ["fcm"]
+    },
+    {
+      "name": "preg",
+      "description": "Power Regulator (PREG)",
+      "tokens": ["preg"]
+    },
+    {
+      "name": "anatop",
+      "description": "Analog Top (ANATOP)",
+      "tokens": ["anatop"]
+    }
+  ]
+}
