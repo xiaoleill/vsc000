@@ -27,9 +27,10 @@ class ermu_input_monitor extends uvm_monitor;
                 ermu_input_transaction tx;
                 tx = ermu_input_transaction::type_id::create("tx");
                 // Find which bit(s) are set
+                // err_src_id[i] → real error ID = i + 8
                 for (int i = 0; i < 284; i++) begin
                     if (vif.monitor_cb.err_src_id[i]) begin
-                        tx.src_id = i;
+                        tx.src_id = i + 8;  // map to real error ID
                         tx.err_src_mask = vif.monitor_cb.err_src_id;
                         `uvm_info("INPUT_MON", $sformatf("Observed error src %0d", i), UVM_HIGH)
                         input_analysis_port.write(tx);

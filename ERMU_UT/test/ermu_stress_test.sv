@@ -30,7 +30,10 @@ class ermu_stress_test extends ermu_base_test;
         //  Random error injection loop (100 iterations)
         // ====================================================================
         for (int iter = 0; iter < 100; iter++) begin
-            src_id = $urandom_range(8, 287);  // valid external IDs only
+            // Pick a valid external ID (must have a physical bus pin)
+            do begin
+                src_id = $urandom_range(8, 287);
+            end while (!env.reg_block.is_valid_source(src_id));
             erc_idx = $urandom_range(0, 4);
             erc_val = (erc_idx == 0) ? 0 : (erc_idx == 1) ? 2 :
                       (erc_idx == 2) ? 3 : (erc_idx == 3) ? 4 : 5;

@@ -30,24 +30,29 @@ class ermu_error_src_test extends ermu_base_test;
         for (int p = 0; p < 36; p++)
             env.reg_block.ERC[p].write(st, {8{3'h2}}, UVM_FRONTDOOR, env.reg_block.reg_map);
 
-        // ---- Select test sources: boundaries + representative categories ----
-        //   Real error IDs 8~287 (driver maps: err_src_id[i] = real_id - 8)
-        //   IDs 0-7 are internal (WT timeout), tested elsewhere
+        // ---- Select test sources: valid (implemented) IDs only ----
+        //   Must have physical err_src_id bus pin
         src_ids = '{
-            8, 15,              // first external + WDT/CSU boundary
-            16, 27,             // CSU range boundary
-            31, 32,             // ESS0/ESS1 boundary
-            63, 64,             // ESS1/ESS2 boundary
-            95, 96,             // ESS2/ESS3 boundary
-            127, 128,           // ESS3/ESS4 boundary
-            159, 160,           // ESS4/ESS5 boundary
-            191, 192,           // ESS5/ESS6 boundary
-            223, 224,           // ESS6/ESS7 boundary
-            255, 256,           // ESS7/ESS8 boundary
-            287,                // last external source (ESS8[31])
-            40, 65, 80, 112,   // per-category: Flash/SRAM/Cache/CAN
-            132, 150, 200, 270 // per-category: EMS/GTM/SFC/Processor
+            8, 12,              // first external, WDT/IWDT boundary
+            16, 27,             // CSU range
+            64, 65,             // ESS2 first valid (TPU0-1)
+            72, 81, 82, 90,     // ESS2: SPU, PPU, DPU1
+            96, 100, 104,       // ESS3: PFU, DFU, SRAMC
+            108, 112, 116,      // ESS3: CREC, FREC, ETH
+            128, 132, 136, 143, // ESS4: MREC, EMS, SBUS, DMA0
+            160, 175, 191,      // ESS5: SFC boundaries
+            192, 203,           // ESS6: SFC range
+            256, 262,           // ESS8: Processor0
+            272, 278            // ESS8: Processor1
         };
+
+        // Guard: filter out any reserved IDs
+        for (int ii = 0; ii < src_ids.size(); ii++) begin
+            if (!env.reg_block.is_valid_source(src_ids[ii])) begin
+                `uvm_error("ERR_SRC", $sformatf("ID=%0d is RESERVED (no bus pin)!", src_ids[ii]))
+                src_ids[ii] = 8;  // fallback to first valid
+            end
+        end
 
         `uvm_info("ERR_SRC", $sformatf("Testing %0d error sources...", src_ids.size()), UVM_NONE)
 

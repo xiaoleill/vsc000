@@ -43,7 +43,7 @@ class ermu_concurrent_test extends ermu_base_test;
         `uvm_info("CONC", "--- Cross-group concurrent errors ---", UVM_NONE)
 
         inject_error(8, 5);    // ESS0
-        inject_error(63, 5);   // ESS1
+        inject_error(65, 5);   // ESS2 (ESS1 all reserved)
         inject_error(100, 5);  // ESS3
         inject_error(200, 5);  // ESS6
         #10000;
