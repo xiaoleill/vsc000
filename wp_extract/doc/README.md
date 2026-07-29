@@ -1,93 +1,147 @@
-# WP Extract — 功能安全 WP 文档信息自动提取工具
+# WP Extract — Functional Safety WP Document Information Extractor
 
-从 ISO 26262 Safety Plan 中提取 Output WP 关键词，在项目目录中搜索匹配文档，自动抽取元数据（Document No./Revision/Author 等），生成 Technical Review 审查报告。
+Extract Output WP keywords from ISO 26262 Safety Plan, search project directories for matching documents, auto-extract metadata (Document No./Revision/Author etc.), and generate Technical Review / Safety Case reports.
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# Install dependencies
+pip install -r scripts/requirements.txt
 
-# 运行（默认 log-only 模式：仅输出目录树和匹配结果，不生成 Excel）
-python extract_wp.py C044_Safety_plan.xlsx -d ./documents
+# Log-only mode (dir tree + match results, no Excel output)
+make log
 
-# 生成 TR 报告
-python extract_wp.py C044_Safety_plan.xlsx -d ./documents -tr -o report.xlsx
+# Generate TR report
+make tr
 
-# 生成 Safety Case 报告
-python extract_wp.py C044_Safety_plan.xlsx -d ./documents -sc -o C044_safetycase.xlsx
+# Generate Safety Case report
+make sc
 
-# 同时生成两者
-python extract_wp.py C044_Safety_plan.xlsx -d ./documents -b
+# Generate both
+make both
 ```
 
-## 命令行参考
+## Project Structure
 
 ```
-python extract_wp.py <safety_plan.xlsx> --doc-dir <目录> [选项]
+wp_extract/
+├── Makefile
+├── .gitignore
+├── scripts/                    # Python source
+│   ├── extract_wp.py           # CLI entry point
+│   ├── safety_plan_parser.py   # Safety Plan parser
+│   ├── file_matcher.py         # Keyword matching engine
+│   ├── metadata_extractor.py   # Multi-format metadata extractor
+│   ├── report_generator.py     # TR report generator
+│   ├── diff_engine.py          # Incremental diff engine
+│   ├── safetycase_generator.py # Safety Case template filler
+│   └── requirements.txt
+├── doc/                        # Documentation
+│   ├── README.md
+│   └── DESIGN_SPEC.md
+├── settings/                   # Configuration & templates
+│   ├── synonym_config.json
+│   ├── Safety case_template.xlsx
+│   └── ref_C044_Safety case.xlsx
+├── output/                     # Generated reports (gitignored)
+└── test/                       # Test data (gitignored)
 ```
 
-### 模式选择
+## CLI Reference
 
-| 参数 | 简写 | 行为 |
-|------|------|------|
-| （默认） | — | 仅 log 输出，不生成 Excel |
-| `--technical_review` | `-tr` | 生成 TR 审查报告（PAC_01~05） |
-| `--safetycase` | `-sc` | 生成 Safety Case 报告 |
-| `--both` | `-b` | 同时生成 TR + Safety Case |
+```
+python scripts/extract_wp.py <safety_plan.xlsx> --doc-dir <dir> [options]
+```
 
-### 其他参数
+### Mode Selection
 
-| 参数 | 简写 | 说明 |
-|------|------|------|
-| `--output` | `-o` | 输出路径 |
-| `--min-score` | `-s` | 匹配阈值 (0.0~1.0)，默认 0.5 |
-| `--phase` | `-p` | 阶段过滤（仅 -tr 模式） |
-| `--new` | — | 全新生成（不做增量 diff，仅 -tr 模式） |
-| `--delete-unmatched` | — | 删除不再匹配的整行（仅 -tr 模式） |
-| `--synonym-config` | — | 同义词配置文件路径 |
-| `--log-file` | `-l` | 日志输出到文件 |
+| Flag | Short | Behavior |
+|------|-------|----------|
+| (default) | — | Log-only: dir tree + match results, no Excel |
+| `--technical_review` | `-tr` | Generate TR report (PAC_01~PAC_05) |
+| `--safetycase` | `-sc` | Generate Safety Case report from template |
+| `--both` | `-b` | Generate both TR + Safety Case |
 
-### `--phase` 语法
+### Options
 
-| 命令 | 含义 |
-|------|------|
-| `--phase=PAC_02` | 仅 PAC_02 |
+| Flag | Short | Modes | Description |
+|------|-------|-------|-------------|
+| `--output` | `-o` | all | TR output path (`-tr`/`-b`), SC output path (`-sc` only) |
+| `--sc-output` | — | `-b` | Safety Case output path (when using `-b`) |
+| `--min-score` | `-s` | all | Matching threshold (0.0~1.0), default 0.5 |
+| `--phase` | `-p` | `-tr` | Phase filter (5 syntaxes supported) |
+| `--new` | — | `-tr`/`-sc` | Fresh generation (skip incremental diff) |
+| `--delete-unmatched` | — | `-tr` | Delete rows when previously-matched WP becomes unmatched |
+| `--synonym-config` | — | all | Path to synonym config JSON (default: `settings/synonym_config.json`) |
+| `--log-file` | `-l` | all | Log output file (auto-generated if not specified) |
+
+### `--phase` Syntax
+
+| Example | Meaning |
+|---------|---------|
+| `--phase=PAC_02` | Only PAC_02 |
 | `--phase=-PAC_02` | PAC_01 → PAC_02 |
-| `--phase=PAC_03-` | PAC_03 → 末尾 |
+| `--phase=PAC_03-` | PAC_03 → end |
 | `--phase=PAC_01,PAC_03` | PAC_01 + PAC_03 |
 | `--phase=PAC_02-PAC_04` | PAC_02 → PAC_04 |
 
-## 输入要求
+## Makefile Targets
 
-| 文件 | 说明 |
-|------|------|
-| `<project>_safety plan.xlsx` | Safety Plan，需包含 `Safety Plan (schedule)` sheet |
-| 文档目录 | 支持 `.xlsx/.xlsm/.docx/.pptx/.pdf/.md` 格式 |
+| Command | Description |
+|---------|-------------|
+| `make log` | Log-only mode |
+| `make tr` | TR report (incremental) |
+| `make tr-new` | TR report (fresh) |
+| `make sc` | Safety Case (incremental) |
+| `make sc-new` | Safety Case (fresh) |
+| `make both` | Both reports (incremental) |
+| `make both-new` | Both reports (fresh) |
+| `make tr-phase PHASE=PAC_01` | TR with phase filter |
+| `make clean` | Remove generated files |
+| `make install` | Install Python dependencies |
 
-## 输出说明
+Custom args: `make tr PLAN=<path> DIR=<path> OUT="output/report.xlsx"`
 
-### TR 报告（`-tr`）
+## Input Requirements
 
-一个 Excel 文件，包含 5 个阶段 Sheet + Statistics：
+| File | Description |
+|------|-------------|
+| `<project>_safety plan.xlsx` | Safety Plan with `Safety Plan (schedule)` sheet |
+| Document directory | Supports `.xlsx/.xlsm/.docx/.pptx/.pdf/.md` |
 
-- 可见列：No. / Work Products / Applicable? / Document No. / Revision / Author / Reviewer / Approver / Status / Date / Note / Matched File
-- 隐藏列：Phase / Task ID / FS Phase / Sub Flow / 计划时间 / 实际时间
-- 增量模式：值变化 → 淡绿标注；未匹配 → 淡黄；元数据缺失 → `NA` 淡红
+## Output
 
-### Safety Case 报告（`-sc`）
+### TR Report (`-tr`)
 
-基于 `Safety case_template.xlsx` 模板填充生成，填充 Title / Revision History / Safety Case 三个 sheet。
+One Excel file with per-phase sheets (PAC_01~PAC_05) + Statistics:
 
-## 同义词配置
+- Visible columns: No. / Work Products / Applicable? / Document No. / Revision / Author / Reviewer / Approver / Status / Date / Note / Matched File
+- Hidden columns: Phase / Task ID / FS Phase / Sub Flow / Plan dates / Actual dates
+- Cell coloring: changed → light green, unmatched row → light yellow, `NA` → light red
 
-编辑 `synonym_config.json` 可自定义：
+### Safety Case Report (`-sc`)
 
-- **`project_meta`**：项目名、FSM、FSE、Approver、Teams
-- **`groups`**：同义词组，同一组内 token 匹配时等价。单 token 组用于模块标识符注册（不匹配时惩罚降权）
+Copies template, fills three sheets:
+
+- **Title**: project name, revision, FSM, Approver
+- **Revision History**: appends new version row (increments 0.01→0.02→... in incremental mode)
+- **Safety Case**: fills H-L columns for F="No" rows (matched files + metadata)
+- Cell coloring: new/changed → light green, `NA` → light red (priority over green)
+
+### Incremental Diff
+
+Both `-tr` and `-sc` support incremental mode by default. When an existing output file is found, the script compares new results against the old report and highlights changes.
+
+## Synonym Configuration
+
+Edit `settings/synonym_config.json`:
+
+- **`project_meta`**: project name, FSM, FSE, Approver, Teams
+- **`groups`**: token equivalence groups. Multi-token groups enable synonym matching; single-token groups register module identifiers for penalty on mismatch.
 
 ```json
 {
+  "project_meta": { "project": "C044", "FSM": "Yaozongfu", ... },
   "groups": [
     { "name": "flash_memory", "tokens": ["efm", "flash", "fmc"] },
     { "name": "can_bus",     "tokens": ["can", "can-fd", "mcan"] },
@@ -96,11 +150,11 @@ python extract_wp.py <safety_plan.xlsx> --doc-dir <目录> [选项]
 }
 ```
 
-不同项目使用不同配置：`--synonym-config=synonym_config_c031.json`
+Per-project config: `--synonym-config=settings/synonym_config_c031.json`
 
-## 注意事项
+## Notes
 
-- 模板文件 `Safety case_template.xlsx` 为只读，脚本不会修改或删除它
-- 增量模式下自动比较旧报告，变更单元格淡绿标注并在 log 中输出 WARNING
-- 日期自动统一为 `YYYY-MM-DD` 格式
-- 找不到的元数据字段显示 `NA`（淡红背景）
+- Template `settings/Safety case_template.xlsx` is read-only — the script never modifies it
+- Incremental mode compares against previous output, highlights changed cells in light green
+- Dates are normalized to `YYYY-MM-DD` format
+- Missing metadata fields display `NA` with light red background

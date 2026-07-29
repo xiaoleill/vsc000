@@ -10,20 +10,23 @@ OUT_DIR   := output
 # ---- Default target ----
 .PHONY: help
 help:
-	@echo "WP Extract — 功能安全 WP 文档信息自动提取"
+	@echo "WP Extract — Functional Safety WP Document Information Extractor"
 	@echo ""
-	@echo "  make log        仅日志输出 (目录树+匹配结果, 无Excel)"
-	@echo "  make tr         生成 TR 报告"
-	@echo "  make sc         生成 Safety Case 报告"
-	@echo "  make both       同时生成 TR + Safety Case"
-	@echo "  make tr-new     全新生成 TR 报告 (不做增量 diff)"
-	@echo "  make sc-new     全新生成 Safety Case 报告"
-	@echo "  make tr-phase   指定阶段生成 TR 报告 (需 PHASE= 参数)"
-	@echo "  make clean      清理输出文件"
-	@echo "  make install    安装 Python 依赖"
+	@echo "  make log        Log-only mode (dir tree + match results, no Excel)"
+	@echo "  make tr         Generate TR report"
+	@echo "  make sc         Generate Safety Case report"
+	@echo "  make both       Generate both TR + Safety Case (incremental)"
+	@echo "  make both-new   Generate both (fresh, skip incremental diff)"
+	@echo "  make tr-new     Fresh TR report (skip incremental diff)"
+	@echo "  make sc-new     Fresh Safety Case report"
+	@echo "  make tr-phase   TR report for specific phases (requires PHASE=)"
+	@echo "  make clean      Remove generated output files"
+	@echo "  make install    Install Python dependencies"
 	@echo ""
-	@echo "  自定义参数: make tr PLAN=<path> DIR=<path> OUT=<path>"
-	@echo "  阶段过滤:   make tr-phase PHASE=PAC_01,PAC_03"
+	@echo "  Custom args: make tr PLAN=<path> DIR=<path> OUT=<path>"
+	@echo "               make sc PLAN=<path> DIR=<path> OUT=<path>"
+	@echo "               make both PLAN=<path> DIR=<path> OUT=<path> SC_OUT=<path>"
+	@echo "  Phase filter: make tr-phase PHASE=PAC_01,PAC_03"
 
 # ---- Log-only mode ----
 .PHONY: log
@@ -46,16 +49,20 @@ tr-phase:
 # ---- Safety Case ----
 .PHONY: sc
 sc:
-	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -sc
+	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -sc $(or $(OUT),-o $(OUT_DIR)/safetycase.xlsx)
 
 .PHONY: sc-new
 sc-new:
-	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -sc --new
+	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -sc --new $(or $(OUT),-o $(OUT_DIR)/safetycase.xlsx)
 
-# ---- Both ----
+# ---- Both (incremental) ----
 .PHONY: both
 both:
-	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -b $(or $(OUT),-o $(OUT_DIR)/report.xlsx)
+	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -b -o $(or $(OUT),$(OUT_DIR)/report.xlsx) --sc-output $(or $(SC_OUT),$(OUT_DIR)/safetycase.xlsx)
+
+.PHONY: both-new
+both-new:
+	$(PYTHON) $(SCRIPT) $(or $(PLAN),$(TEST_PLAN)) -d $(or $(DIR),$(TEST_DIR)) -b --new -o $(or $(OUT),$(OUT_DIR)/report.xlsx) --sc-output $(or $(SC_OUT),$(OUT_DIR)/safetycase.xlsx)
 
 # ---- Utility ----
 .PHONY: clean

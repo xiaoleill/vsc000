@@ -174,6 +174,11 @@ Examples:
         help='Generate both TR report and Safety Case report.',
     )
     parser.add_argument(
+        '--sc-output',
+        default=None,
+        help='Output path for Safety Case report (default: <project>_safetycase.xlsx).',
+    )
+    parser.add_argument(
         '--new', action='store_true',
         help='(TR mode only) Generate a fresh report (disable incremental diff).',
     )
@@ -412,7 +417,7 @@ Examples:
             project_name = cfg.get('project_meta', {}).get('project', 'C044')
         except Exception:
             pass
-        sc_output = f'{project_name}_safetycase.xlsx'
+        sc_output = args.sc_output or (args.output if not do_tr else None) or f'{project_name}_safetycase.xlsx'
 
         sc_path = fill_safety_case_report(
             template_path, doc_dir, sc_output,
