@@ -185,7 +185,7 @@ Examples:
         '--synonym-config',
         default=None,
         help='Path to synonym equivalence config JSON file. '
-             'Default: ./synonym_config.json',
+             'Default: ./settings/synonym_config.json',
     )
     parser.add_argument(
         '--log-file', '-l',
@@ -224,7 +224,7 @@ Examples:
         # Auto-generate default log name: <project>_extract_<timestamp>.log
         import json as _json
         cfg_path = args.synonym_config or os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), 'synonym_config.json')
+            os.path.dirname(os.path.abspath(__file__)), '..', 'settings', 'synonym_config.json')
         proj = 'WP'
         try:
             with open(cfg_path, 'r', encoding='utf-8') as _f:
@@ -302,7 +302,7 @@ Examples:
 
     # Load synonym config
     synonym_map = load_synonym_config(args.synonym_config)
-    config_display = args.synonym_config or 'synonym_config.json (default)'
+    config_display = args.synonym_config or 'settings/synonym_config.json (default)'
     # Count unique groups
     unique_sets = set(frozenset(v) for v in synonym_map.values()) if synonym_map else set()
     print(f"      Synonym config: {config_display} ({len(unique_sets)} groups)")
@@ -396,7 +396,7 @@ Examples:
         print()
         print("[SC] Generating Safety Case report...")
         template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                     'Safety case_template.xlsx')
+                                     '..', 'settings', 'Safety case_template.xlsx')
         if not os.path.exists(template_path):
             print(f"ERROR: Template not found: {template_path}")
             sys.exit(1)
@@ -404,7 +404,7 @@ Examples:
         # Read project name from synonym config
         import json
         cfg_path = args.synonym_config or os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), 'synonym_config.json')
+            os.path.dirname(os.path.abspath(__file__)), '..', 'settings', 'synonym_config.json')
         project_name = 'C044'
         try:
             with open(cfg_path, 'r', encoding='utf-8') as f:

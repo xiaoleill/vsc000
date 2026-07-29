@@ -45,7 +45,7 @@ _synonym_loaded: bool = False
 
 # Default config path (relative to this module's directory)
 _DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                'synonym_config.json')
+                                '..', 'settings', 'synonym_config.json')
 
 
 def load_synonym_config(config_path: str = None) -> dict[str, set[str]]:

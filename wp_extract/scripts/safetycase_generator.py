@@ -203,7 +203,7 @@ def _get_directory_path(filepath: str, doc_dir: str) -> str:
 def _load_project_meta(config_path: str = None) -> dict:
     """Load project_meta from synonym config."""
     path = config_path or os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                        'synonym_config.json')
+                                        '..', 'settings', 'synonym_config.json')
     try:
         with open(path, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
