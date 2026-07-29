@@ -1,6 +1,14 @@
 {
   "_comment": "Synonym equivalence rules for WP document matching.",
-  "_usage": "Each group defines tokens that are equivalent during keyword→filename matching. When any token in a group appears in a keyword, it can match any other token from the same group in a filename (and vice versa). The optional 'pattern' field provides a regex for additional flexibility — if either token matches the group's regex, synonym matching applies.",
+  "_usage": "Each group defines tokens that are equivalent during keyword→filename matching.",
+
+  "project_meta": {
+    "project": "C044",
+    "FSM": "Yaozongfu",
+    "FSE": ["Sunxiaochun", "K. Takemura"],
+    "Approver": "Niyongliang",
+    "Teams": ["DesignTeam", "VerificationTeam", "FusaTeam"]
+  },
 
   "groups": [
     {
@@ -58,6 +66,11 @@
       "name": "usart",
       "description": "USART / UART serial",
       "tokens": ["usart", "uart"]
+    },
+    {
+      "name": "hsr",
+      "description": "Hardware Safety Requirements (HSR / HW safety requirement)",
+      "tokens": ["hsr", "hw safety requirement specification", "hardware safety requirements"]
     },
     {
       "name": "cmu",

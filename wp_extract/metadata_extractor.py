@@ -31,7 +31,15 @@ FIELD_PATTERNS = {
         r'\brevision\s*[:：]?\s*$',
         r'\bversion\s*[:：]?\s*$',
         r'\bver\.?\s*[:：]?\s*$',
+        r'\brev\.?\s*[:：]?\s*$',
         r'版本\s*[:：]?\s*$',
+        r'文档版本\s*[:：]?\s*$',
+    ],
+    'date': [
+        r'\bdate\s*[:：]?\s*$',
+        r'\blast\s*modified\s*[:：]?\s*$',
+        r'日期\s*[:：]?\s*$',
+        r'发布日期\s*[:：]?\s*$',
     ],
     'author': [
         r'\bauthor\s*[:：]?\s*$',
@@ -452,6 +460,39 @@ def extract_docx_metadata(filepath: str) -> DocumentMetadata:
                 if label and value and len(label) < 50:
                     para_pairs.append((label, value))
     _apply(para_pairs)
+
+    # Priority 3.5: Revision History tables (multi-column: Revision/Rev. | Date | ...)
+    # Scan ALL tables for Revision History format, extract latest revision row
+    for table in doc.tables:
+        if table.rows and len(table.columns) >= 2:
+            header_texts = [cell.text.strip().lower() for cell in table.rows[0].cells]
+            # Check if this looks like a Revision History table
+            is_rev_header = any(
+                h in ('revision', 'rev.', 'rev', 'version', 'ver.', '文档版本', '修订记录')
+                for h in header_texts
+            )
+            if not is_rev_header:
+                continue
+            # Find Date column index
+            date_col = None
+            for ci, h in enumerate(header_texts):
+                if h in ('date', '日期', '发布日期'):
+                    date_col = ci
+                    break
+            # Extract latest revision (last row with non-empty first column)
+            for row in table.rows[1:]:  # skip header
+                rev_val = row.cells[0].text.strip()
+                if rev_val:
+                    if fields['revision'] == NOT_FOUND:
+                        fields['revision'] = rev_val
+                    else:
+                        fields['revision'] = rev_val  # overwrite with later row
+                    if date_col is not None and date_col < len(row.cells):
+                        date_val = row.cells[date_col].text.strip()
+                        if date_val and fields['date'] == NOT_FOUND:
+                            fields['date'] = _parse_date_value(date_val)
+                        elif date_val:
+                            fields['date'] = _parse_date_value(date_val)
 
     # Priority 4: docProps (fallback only)
     try:

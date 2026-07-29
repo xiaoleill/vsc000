@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from safety_plan_parser import parse_safety_plan, WorkItem
 from file_matcher import match_all_keywords, discover_files, MatchResult, load_synonym_config
 from report_generator import generate_tr_report
+from safetycase_generator import print_directory_tree, fill_safety_case_report
 
 
 class TeeWriter:
@@ -161,14 +162,24 @@ Examples:
         ),
     )
     parser.add_argument(
+        '--technical_review', '-tr', action='store_true',
+        help='Generate TR-format per-phase report (PAC_01~PAC_05).',
+    )
+    parser.add_argument(
+        '--safetycase', '-sc', action='store_true',
+        help='Generate Safety Case report from template.',
+    )
+    parser.add_argument(
+        '--both', '-b', action='store_true',
+        help='Generate both TR report and Safety Case report.',
+    )
+    parser.add_argument(
         '--new', action='store_true',
-        help='Generate a fresh report (disable incremental diff mode). '
-             'Default: incremental mode compares against existing output.',
+        help='(TR mode only) Generate a fresh report (disable incremental diff).',
     )
     parser.add_argument(
         '--delete-unmatched', action='store_true',
-        help='Delete entire row when a previously-matched WP is now unmatched. '
-             'Default: keep row skeleton with cleared metadata cells.',
+        help='(TR mode only) Delete entire row when a previously-matched WP is now unmatched.',
     )
     parser.add_argument(
         '--synonym-config',
@@ -209,13 +220,26 @@ Examples:
 
     # Setup log file (tee stdout + stderr to file)
     log_fh = None
-    if args.log_file:
-        log_dir = os.path.dirname(os.path.abspath(args.log_file))
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-        log_fh = open(args.log_file, 'w', encoding='utf-8')
-        sys.stdout = TeeWriter(sys.stdout, log_fh)
-        sys.stderr = TeeWriter(sys.stderr, log_fh)
+    if not args.log_file:
+        # Auto-generate default log name: <project>_extract_<timestamp>.log
+        import json as _json
+        cfg_path = args.synonym_config or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'synonym_config.json')
+        proj = 'WP'
+        try:
+            with open(cfg_path, 'r', encoding='utf-8') as _f:
+                proj = _json.load(_f).get('project_meta', {}).get('project', 'WP')
+        except Exception:
+            pass
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        args.log_file = f'{proj}_extract_{timestamp}.log'
+
+    log_dir = os.path.dirname(os.path.abspath(args.log_file))
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log_fh = open(args.log_file, 'w', encoding='utf-8')
+    sys.stdout = TeeWriter(sys.stdout, log_fh)
+    sys.stderr = TeeWriter(sys.stderr, log_fh)
 
     doc_dir = os.path.abspath(args.doc_dir)
 
@@ -323,21 +347,80 @@ Examples:
     print(f"\n      Matched keywords: {matched_count}, Unmatched: {unmatched_count}")
     print(f"      Total file matches: {total_files_matched} (incl. multi-file keywords)")
 
-    # Step 4: Generate report
-    print()
-    print("[4/4] Generating report...")
-    # Determine old report path for incremental mode
-    old_path = None
-    if not args.new and os.path.exists(args.output):
-        old_path = args.output
-        print(f"      Incremental mode: comparing against {args.output}")
+    # Determine modes
+    do_tr = args.technical_review or args.both
+    do_sc = args.safetycase or args.both
+    log_only = not do_tr and not do_sc
 
-    output_path = generate_tr_report(
-        work_items, match_results, args.output, doc_dir,
-        old_report_path=old_path,
-        delete_unmatched=args.delete_unmatched,
-    )
-    print(f"      Report saved to: {output_path}")
+    # --- Directory Tree ---
+    print()
+    print("[4/4] Directory tree:")
+    tree = print_directory_tree(doc_dir)
+    print(tree)
+    print(f"      ({len(all_files)} files)")
+
+    # --- Log-only mode: skip Excel generation ---
+    if log_only:
+        print()
+        print("=" * 60)
+        print("Extraction complete! (log-only mode, no Excel output)")
+        print(f"  Work items processed:   {len(work_items)}")
+        print(f"  Keywords matched:       {matched_count}/{len(all_keywords)}")
+        print(f"  Total file matches:     {total_files_matched}")
+        if args.log_file:
+            print(f"  Log file:               {args.log_file}")
+        print("=" * 60)
+        if log_fh:
+            log_fh.close()
+        return
+
+    # --- TR mode ---
+    if do_tr:
+        print()
+        print("[TR] Generating Technical Review report...")
+        old_path = None
+        if not args.new and args.output and os.path.exists(args.output):
+            old_path = args.output
+            print(f"      Incremental mode: comparing against {args.output}")
+
+        tr_output = args.output or f'WP_Extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        output_path = generate_tr_report(
+            work_items, match_results, tr_output, doc_dir,
+            old_report_path=old_path,
+            delete_unmatched=args.delete_unmatched,
+        )
+        print(f"      TR Report saved to: {output_path}")
+
+    # --- Safety Case mode ---
+    if do_sc:
+        print()
+        print("[SC] Generating Safety Case report...")
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'Safety case_template.xlsx')
+        if not os.path.exists(template_path):
+            print(f"ERROR: Template not found: {template_path}")
+            sys.exit(1)
+
+        # Read project name from synonym config
+        import json
+        cfg_path = args.synonym_config or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'synonym_config.json')
+        project_name = 'C044'
+        try:
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            project_name = cfg.get('project_meta', {}).get('project', 'C044')
+        except Exception:
+            pass
+        sc_output = f'{project_name}_safetycase.xlsx'
+
+        sc_path = fill_safety_case_report(
+            template_path, doc_dir, sc_output,
+            config_path=args.synonym_config,
+            min_score=args.min_score,
+            fresh=args.new,
+        )
+        print(f"      Safety Case saved to: {sc_path}")
 
     print()
     print("=" * 60)
@@ -345,11 +428,12 @@ Examples:
     if args.phase:
         print(f"  Phase filter:           {args.phase}")
     print(f"  Work items processed:   {len(work_items)}")
-    if args.phase:
-        print(f"  (out of {len(all_work_items)} total)")
     print(f"  Keywords matched:       {matched_count}/{len(all_keywords)}")
     print(f"  Total file matches:     {total_files_matched}")
-    print(f"  Report:                 {output_path}")
+    if do_tr:
+        print(f"  TR Report:              {tr_output}")
+    if do_sc:
+        print(f"  Safety Case:            {sc_path}")
     if args.log_file:
         print(f"  Log file:               {args.log_file}")
     print("=" * 60)
