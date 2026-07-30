@@ -1,6 +1,6 @@
 // =============================================================================
 //  ERMU Error Response Full Test — Deep coverage of response module
-//  Exercises: 288 sources × 8 ERC encodings across valid IDs
+//  Exercises: 288 sources x 8 ERC encodings across valid IDs
 //  Covers multi-source concurrency, response transitions, mask interaction
 // =============================================================================
 
@@ -15,6 +15,11 @@ class ermu_error_rsp_full_test extends ermu_base_test;
     task run_phase(uvm_phase phase);
         uvm_status_e   st;
         uvm_reg_data_t rd;
+        int            test_srcs[9];
+        bit [2:0]      erc_list[8];
+        bit [2:0]      trans_ercs[5];
+        int            src, si, ei, ti;
+        bit [2:0]      erc;
 
         phase.raise_objection(this);
         wait_reset_release();
@@ -27,17 +32,20 @@ class ermu_error_rsp_full_test extends ermu_base_test;
         // ================================================================
         //  1. All ERC encodings across multiple valid source IDs
         // ================================================================
-        `uvm_info("RSPFULL", "--- 1. ERC encoding × valid source sweep ---", UVM_NONE)
+        `uvm_info("RSPFULL", "--- 1. ERC encoding x valid source sweep ---", UVM_NONE)
 
-        // Pick valid source IDs from each ESS group
-        int test_srcs[] = '{8, 16, 64, 96, 128, 160, 192, 256, 272};
-        bit [2:0] erc_list[] = '{3'h0, 3'h1, 3'h2, 3'h3, 3'h4, 3'h5, 3'h6, 3'h7};
+        test_srcs[0] = 8;  test_srcs[1] = 16; test_srcs[2] = 64;
+        test_srcs[3] = 96; test_srcs[4] = 128; test_srcs[5] = 160;
+        test_srcs[6] = 192; test_srcs[7] = 256; test_srcs[8] = 272;
+        erc_list[0] = 3'h0; erc_list[1] = 3'h1; erc_list[2] = 3'h2;
+        erc_list[3] = 3'h3; erc_list[4] = 3'h4; erc_list[5] = 3'h5;
+        erc_list[6] = 3'h6; erc_list[7] = 3'h7;
 
-        foreach (test_srcs[si]) begin
-            int src = test_srcs[si];
+        for (si = 0; si < 9; si++) begin
+            src = test_srcs[si];
             if (!env.reg_block.is_valid_source(src)) continue;
-            foreach (erc_list[ei]) begin
-                bit [2:0] erc = erc_list[ei];
+            for (ei = 0; ei < 8; ei++) begin
+                erc = erc_list[ei];
                 cfg_and_inject(src, erc);
                 // HPI needs HPIE enabled
                 if (erc == 3'h5) env.reg_block.EGC.write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map);
@@ -53,13 +61,14 @@ class ermu_error_rsp_full_test extends ermu_base_test;
         // ================================================================
         //  2. Response transitions on same source
         // ================================================================
-        `uvm_info("RSPFULL", "--- 2. Response transition (NA→LPI0→HPI→NA) ---", UVM_NONE)
+        `uvm_info("RSPFULL", "--- 2. Response transition (NA->LPI0->HPI->NA) ---", UVM_NONE)
         env.reg_block.EGC.write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // HPIE_C0=1
 
-        // NA → LPI0 → HPI → APP_RST → NA on source 8
-        bit [2:0] transition_ercs[] = '{3'h0, 3'h2, 3'h5, 3'h6, 3'h0};
-        foreach (transition_ercs[ti]) begin
-            cfg_and_inject(8, transition_ercs[ti]);
+        // NA -> LPI0 -> HPI -> APP_RST -> NA on source 8
+        trans_ercs[0] = 3'h0; trans_ercs[1] = 3'h2; trans_ercs[2] = 3'h5;
+        trans_ercs[3] = 3'h6; trans_ercs[4] = 3'h0;
+        for (ti = 0; ti < 5; ti++) begin
+            cfg_and_inject(8, trans_ercs[ti]);
             inject_error(8, 5);
             #30000;
             env.reg_block.ESS[0].read(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map);
@@ -86,7 +95,7 @@ class ermu_error_rsp_full_test extends ermu_base_test;
         clear_erc(8); clear_erc(16); clear_erc(96);
 
         // ================================================================
-        //  4. ESS clear → response deassertion
+        //  4. ESS clear -> response deassertion
         // ================================================================
         `uvm_info("RSPFULL", "--- 4. Response deassert on ESS clear ---", UVM_NONE)
         cfg_and_inject(8, 3'h2);  // LPI0
@@ -96,7 +105,7 @@ class ermu_error_rsp_full_test extends ermu_base_test;
         env.reg_block.ESSC[0].write(st, rd, UVM_FRONTDOOR, env.reg_block.reg_map); // clear ESS
         #10000;
         // After clear, LPI should deassert (verified via output monitor/scoreboard)
-        `uvm_info("RSPFULL", "ESS cleared — check LPI deasserted in waveform", UVM_MEDIUM)
+        `uvm_info("RSPFULL", "ESS cleared -- check LPI deasserted in waveform", UVM_MEDIUM)
 
         // ================================================================
         //  5. SYS_RST / APP_RST response (reset request channels)
