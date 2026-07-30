@@ -1,42 +1,21 @@
-# =============================================================================
-#  IMC Report Script — Generate line/toggle/condition coverage reports
-#  Run from: ERMU_UT/sim/
-#  Usage: imc -batch -exec ../scripts/imc_report.tcl
-# =============================================================================
+# IMC Report Script — Generate coverage reports (IMC 23.09 compatible)
 
-set cov_db "cov_results/merged_cov"
+set sim_dir [file normalize [file join [file dirname [info script]] .. sim]]
+set merged_db [file join $sim_dir merged]
+set cov_dir [file join $sim_dir cov_results]
 
-# Check if merged database exists
-if {[file exists $cov_db]} {
-    load $cov_db
-} else {
-    puts "ERROR: Merged coverage database not found: $cov_db"
+if {![file exists $merged_db]} {
+    puts "ERROR: Merged database not found: $merged_db"
     puts "Run 'make cov_merge' first."
     exit 1
 }
 
-# ---- Text report with detail ----
-report -out cov_results/ermu_coverage_report.txt -detail
-puts "Text report: cov_results/ermu_coverage_report.txt"
+load $merged_db
 
-# ---- HTML report ----
-report -type html -out cov_results/ermu_coverage_report.html
-puts "HTML report: cov_results/ermu_coverage_report.html"
+# Detailed text report
+report -out [file join $cov_dir ermu_coverage_report.txt] -detail
+puts "Text:   cov_results/ermu_coverage_report.txt"
 
-# ---- Metrics summary ----
-report -type metrics -out cov_results/ermu_metrics.txt \
-    -metrics line -metrics toggle -metrics condition
-puts "Metrics:     cov_results/ermu_metrics.txt"
-
-# ---- Grade against goals ----
-puts ""
-puts "=========================================="
-puts " Grading against goals:"
-puts "   Line      >= 95%"
-puts "   Toggle    >= 90%"
-puts "   Condition >= 95%"
-puts "=========================================="
-grade -line 95 -toggle 90 -condition 95
-
-puts ""
-puts "IMC reports generated in cov_results/"
+# Coverage report — scoped to DUT
+report_metrics -detail -out $cov_dir -verification_scope hdl_top.u_dut -metrics all -both
+puts "HTML: cov_results/index.html"

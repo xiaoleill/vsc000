@@ -193,5 +193,6 @@ package ermu_test_pkg;
     `include "ermu_reset_test.sv"
     `include "ermu_stress_test.sv"
     `include "ermu_func_full_test.sv"
+    `include "ermu_error_rsp_full_test.sv"
 
 endpackage : ermu_test_pkg

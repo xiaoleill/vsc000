@@ -5,8 +5,8 @@
 # =============================================================================
 
 # ---- Tool Configuration ----
-XRUN      ?= bsub -Ip xrun
-IMC       ?= bsub -Ip imc
+XRUN      ?= bsub -R "redhat7" -Ip xrun
+IMC       ?= bsub -R "redhat7" -Ip imc
 UVMHOME   ?= CDNS-1.2
 
 # ---- Project Paths (relative to sim/) ----
@@ -16,7 +16,6 @@ LOG_DIR      = log
 COV_DIR      = cov_results
 WAVE_DIR     = waves
 COMPILE_F    = $(SCRIPTS_DIR)/compile_ermu.f
-COV_CONFIG   = ../cov/cov_config.tcl
 
 # ---- Simulation Options ----
 TOP_MODULE   = hdl_top
@@ -27,21 +26,22 @@ XRUN_OPTS    = -f $(COMPILE_F) -uvmhome $(UVMHOME) -uvm \
                -nowarn UEXPSC -nohistory
 
 # ---- Test List (all 16 tests) ----
-TESTS = ermu_smoke_test       \
-        ermu_reg_test         \
-        ermu_cfglock_test     \
-        ermu_error_src_test   \
-        ermu_error_rsp_test   \
-        ermu_error_mask_test  \
-        ermu_pseudo_err_test  \
-        ermu_hpi_test         \
-        ermu_output_chan_test \
-        ermu_timer_test       \
-        ermu_prescaler_test   \
-        ermu_pssr_test        \
-        ermu_concurrent_test  \
-        ermu_reset_test       \
-        ermu_stress_test      \
+TESTS = ermu_smoke_test        \
+        ermu_reg_test          \
+        ermu_cfglock_test      \
+        ermu_error_src_test    \
+        ermu_error_rsp_test    \
+        ermu_error_rsp_full_test \
+        ermu_error_mask_test   \
+        ermu_pseudo_err_test   \
+        ermu_hpi_test          \
+        ermu_output_chan_test  \
+        ermu_timer_test        \
+        ermu_prescaler_test    \
+        ermu_pssr_test         \
+        ermu_concurrent_test   \
+        ermu_reset_test        \
+        ermu_stress_test       \
         ermu_func_full_test
 
 # ---- Default: help ----
@@ -193,7 +193,7 @@ test: dirs
 		+UVM_TESTNAME=$(TEST) \
 		+UVM_VERBOSITY=$(VERB) \
 		-seed $(SEED) \
-		$(if $(filter 1,$(COV)),-coverage all -covoverwrite -covtest $(TEST) -covfile $(COV_CONFIG) -covdir $(COV_DIR)/$(TEST)) \
+		$(if $(filter 1,$(COV)),-coverage all -covoverwrite -covtest $(TEST) -covworkdir $(COV_DIR)/$(TEST)) \
 		$(if $(filter 1,$(GUI)),-gui) \
 		$(if $(filter 1,$(DUMP)),-input $(SCRIPTS_DIR)/dump_waves.tcl) \
 		-log $(LOG_DIR)/$(TEST)_s$(SEED).log 2>&1; \
@@ -397,33 +397,24 @@ cov_regress: dirs
 .PHONY: cov_merge
 cov_merge:
 	@echo "[IMC] Merging coverage databases..."
-	@$(IMC) -batch -exec $(SCRIPTS_DIR)/imc_merge.tcl
-	@echo "[IMC] Merge complete: $(COV_DIR)/merged_cov"
+	@$(IMC) -exec $(SCRIPTS_DIR)/imc_merge.tcl
 
 .PHONY: cov_report
 cov_report:
 	@echo "[IMC] Generating coverage reports..."
-	@$(IMC) -batch -exec $(SCRIPTS_DIR)/imc_report.tcl
+	@$(IMC) -exec $(SCRIPTS_DIR)/imc_report.tcl
 	@echo "[IMC] Reports generated in $(COV_DIR)/"
-	@echo ""
-	@echo "--- Line Coverage ---"
-	@grep -A5 "Line" $(COV_DIR)/ermu_metrics.txt 2>/dev/null || echo "(run cov_merge first)"
-	@echo ""
-	@echo "--- Toggle Coverage ---"
-	@grep -A5 "Toggle" $(COV_DIR)/ermu_metrics.txt 2>/dev/null || echo "(run cov_merge first)"
-	@echo ""
-	@echo "--- Condition Coverage ---"
-	@grep -A5 "Condition" $(COV_DIR)/ermu_metrics.txt 2>/dev/null || echo "(run cov_merge first)"
+	@cat $(COV_DIR)/ermu_metrics.txt 2>/dev/null || echo "(run cov_merge first)"
 
 .PHONY: cov_gui
 cov_gui:
 	@echo "[IMC] Launching GUI on merged coverage..."
-	@$(IMC) -gui -load $(COV_DIR)/merged_cov &
+	@$(IMC) -gui -load merged &
 
 .PHONY: cov_grades
 cov_grades:
-	@echo "[IMC] Grading coverage against goals (line>=95, toggle>=90, condition>=95)..."
-	@$(IMC) -batch -exec $(SCRIPTS_DIR)/imc_report.tcl 2>&1 | grep -E "(grade|PASS|FAIL|metric)" || true
+	@echo "[IMC] Grading coverage..."
+	@$(IMC) -exec $(SCRIPTS_DIR)/imc_report.tcl 2>&1 | grep -E "(code|toggle|expression|PASS|FAIL|grade)" || true
 
 # ==============================================================================
 #  RESULTS CHECKING

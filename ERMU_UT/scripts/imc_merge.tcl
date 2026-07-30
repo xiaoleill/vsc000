@@ -1,20 +1,22 @@
-# =============================================================================
-#  IMC Merge Script — Merges all coverage databases from regression
-#  Run from: ERMU_UT/sim/
-#  Usage: imc -batch -exec ../scripts/imc_merge.tcl
-# =============================================================================
+# IMC Merge Script — Merges all coverage databases from regression
+# Works regardless of IMC's working directory
 
-# Merge all per-test coverage databases under cov_results/
-# Each test creates: cov_results/<test>/cov_work/scope
-if {[glob -nocomplain cov_results/*/cov_work/scope] ne ""} {
-    merge cov_results/*/cov_work/scope -out cov_results/merged_cov -overwrite
-    puts "IMC merge complete: cov_results/merged_cov"
-} else {
-    # Try older merged location
-    if {[glob -nocomplain cov_results/merged_cov] ne ""} {
-        puts "Using existing merged coverage: cov_results/merged_cov"
-    } else {
-        puts "WARNING: No coverage databases found to merge."
-        puts "Run 'make cov_test TEST=<name>' first to generate coverage data."
+set sim_dir [file normalize [file join [file dirname [info script]] .. sim]]
+set cov_dir [file join $sim_dir cov_results]
+set db_list [list]
+
+foreach dir [glob -nocomplain [file join $cov_dir * scope *]] {
+    if {[file isdirectory $dir]} {
+        lappend db_list $dir
     }
+}
+
+if {[llength $db_list] > 0} {
+    puts "Merging [llength $db_list] databases from $cov_dir ..."
+    set out_dir [file join $sim_dir merged]
+    file mkdir $out_dir
+    eval merge $db_list -out $out_dir -overwrite
+    puts "Merge complete: $out_dir"
+} else {
+    puts "ERROR: No scope/ directories found under $cov_dir/"
 }
