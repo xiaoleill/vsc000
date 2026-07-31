@@ -213,31 +213,32 @@ Examples:
         print("ERROR: --min-score must be between 0.0 and 1.0")
         sys.exit(1)
 
-    # Default output path
-    if args.output is None:
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        args.output = f'WP_Extract_{timestamp}.xlsx'
+    # Read project name early (used for default file naming & log)
+    import json as _json
+    cfg_path = args.synonym_config or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'settings', 'synonym_config.json')
+    project_name = 'WP'
+    try:
+        with open(cfg_path, 'r', encoding='utf-8') as _f:
+            project_name = _json.load(_f).get('project_meta', {}).get('project', 'WP')
+    except Exception:
+        pass
 
-    # Ensure output directory exists
-    output_dir = os.path.dirname(os.path.abspath(args.output))
+    # Default output path: if not specified, use cwd (Python will put file in cwd)
+    if args.output is None:
+        args.output = os.getcwd()
+
+    # Ensure the output directory exists
+    abs_output = os.path.abspath(args.output)
+    output_dir = abs_output if os.path.isdir(abs_output) else os.path.dirname(abs_output)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
     # Setup log file (tee stdout + stderr to file)
     log_fh = None
     if not args.log_file:
-        # Auto-generate default log name: <project>_extract_<timestamp>.log
-        import json as _json
-        cfg_path = args.synonym_config or os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), '..', 'settings', 'synonym_config.json')
-        proj = 'WP'
-        try:
-            with open(cfg_path, 'r', encoding='utf-8') as _f:
-                proj = _json.load(_f).get('project_meta', {}).get('project', 'WP')
-        except Exception:
-            pass
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        args.log_file = f'{proj}_extract_{timestamp}.log'
+        args.log_file = f'{project_name}_extract_{timestamp}.log'
 
     log_dir = os.path.dirname(os.path.abspath(args.log_file))
     if log_dir and not os.path.exists(log_dir):
@@ -383,12 +384,18 @@ Examples:
     if do_tr:
         print()
         print("[TR] Generating Technical Review report...")
-        old_path = None
-        if not args.new and args.output and os.path.exists(args.output):
-            old_path = args.output
-            print(f"      Incremental mode: comparing against {args.output}")
+        tr_output = args.output
 
-        tr_output = args.output or f'WP_Extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        # If tr_output is a directory, resolve to <project>_TR_view.xlsx inside it
+        if os.path.isdir(os.path.abspath(tr_output)):
+            tr_output = os.path.join(os.path.abspath(tr_output), f'{project_name}_TR_view.xlsx')
+            print(f"      NOTE: Output is a directory, auto filename: {tr_output}")
+
+        # Incremental diff: check if resolved output file already exists
+        old_path = None
+        if not args.new and os.path.isfile(tr_output):
+            old_path = tr_output
+            print(f"      Incremental mode: comparing against {tr_output}")
         output_path = generate_tr_report(
             work_items, match_results, tr_output, doc_dir,
             old_report_path=old_path,
@@ -406,18 +413,27 @@ Examples:
             print(f"ERROR: Template not found: {template_path}")
             sys.exit(1)
 
-        # Read project name from synonym config
-        import json
-        cfg_path = args.synonym_config or os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), '..', 'settings', 'synonym_config.json')
-        project_name = 'C044'
-        try:
-            with open(cfg_path, 'r', encoding='utf-8') as f:
-                cfg = json.load(f)
-            project_name = cfg.get('project_meta', {}).get('project', 'C044')
-        except Exception:
-            pass
-        sc_output = args.sc_output or (args.output if not do_tr else None) or f'{project_name}_safetycase.xlsx'
+        # Determine SC output path:
+        # - If --sc-output set explicitly → use it
+        # - If -sc only mode (not -b) → use --output (same as TR logic)
+        # - If -b mode and --output specified → derive from TR output dir
+        # - Otherwise → default filename
+        if args.sc_output:
+            sc_output = args.sc_output
+        elif not do_tr:
+            sc_output = args.output  # -sc only: reuse --output
+        elif do_tr and args.output:
+            # -b mode: derive from TR output directory
+            abs_out = os.path.abspath(args.output)
+            tr_dir = abs_out if os.path.isdir(abs_out) else os.path.dirname(abs_out)
+            sc_output = os.path.join(tr_dir, f'{project_name}_safetycase.xlsx')
+        else:
+            sc_output = f'{project_name}_safetycase.xlsx'
+
+        # If SC output path is an existing directory, auto-generate filename inside it
+        if os.path.isdir(os.path.abspath(sc_output)):
+            sc_output = os.path.join(os.path.abspath(sc_output), f'{project_name}_safetycase.xlsx')
+            print(f"      NOTE: SC output is a directory, auto filename: {sc_output}")
 
         sc_path = fill_safety_case_report(
             template_path, doc_dir, sc_output,

@@ -17,6 +17,7 @@ from typing import Optional
 
 import openpyxl
 from openpyxl.styles import PatternFill, Alignment, Border, Side, Font
+from openpyxl.worksheet.hyperlink import Hyperlink
 
 from file_matcher import MatchResult, match_keyword_to_file, discover_files, load_synonym_config
 from metadata_extractor import extract_metadata, DocumentMetadata, NOT_FOUND
@@ -198,6 +199,30 @@ def _get_directory_path(filepath: str, doc_dir: str) -> str:
         dir_part = os.path.dirname(rel)
         return dir_part if dir_part else rel
     return os.path.dirname(filepath)
+
+
+def _set_h_cell(ws, row: int, display_text: str, doc_dir: str,
+                file_paths: list[str] = None, dir_paths: list[str] = None):
+    """
+    Write display_text to H column and attach a hyperlink.
+    - Single or multiple files: link to the first file's absolute path.
+    - Directory-only entries: link to the first directory's absolute path.
+    - display_text may contain multiple lines (\\n-separated).
+    """
+    import openpyxl.worksheet.hyperlink as _hl
+
+    cell = ws.cell(row=row, column=8)
+    cell.value = display_text
+
+    target = None
+    if file_paths:
+        target = file_paths[0]
+    elif dir_paths:
+        target = os.path.join(doc_dir, dir_paths[0]) if doc_dir else dir_paths[0]
+
+    if target and os.path.exists(target):
+        normalized = target.replace('\\', '/')
+        cell.hyperlink = _hl.Hyperlink(ref=cell.coordinate, target=normalized)
 
 
 def _load_project_meta(config_path: str = None) -> dict:
@@ -586,7 +611,8 @@ def fill_safety_case_report(
                             paths.append(os.path.relpath(fp, doc_dir))
                         else:
                             paths.append(fp)
-                    ws_sc.cell(row=r, column=8).value = '\n'.join(paths)   # H
+                    _set_h_cell(ws_sc, r, '\n'.join(paths), doc_dir,
+                                file_paths=all_matched)
                     ws_sc.cell(row=r, column=10).value = (
                         special['force_status'] if special.get('force_status')
                         else meta.status
@@ -608,7 +634,7 @@ def fill_safety_case_report(
 
             # Type 2: directory-based rules (fill directory path + ref metadata)
             dir_path = special.get('directory', '')
-            ws_sc.cell(row=r, column=8).value = dir_path
+            _set_h_cell(ws_sc, r, dir_path, doc_dir, dir_paths=[dir_path] if dir_path else [])
 
             ref_file = None
             if special.get('prefer_file'):
@@ -678,7 +704,7 @@ def fill_safety_case_report(
                     d = _get_directory_path(fp, doc_dir)
                     if d not in dirs:
                         dirs.append(d)
-                ws_sc.cell(row=r, column=8).value = '\n'.join(dirs)
+                _set_h_cell(ws_sc, r, '\n'.join(dirs), doc_dir, dir_paths=dirs)
             else:
                 paths = []
                 for fp in all_matched_files:
@@ -686,7 +712,8 @@ def fill_safety_case_report(
                         paths.append(os.path.relpath(fp, doc_dir))
                     else:
                         paths.append(fp)
-                ws_sc.cell(row=r, column=8).value = '\n'.join(paths)
+                _set_h_cell(ws_sc, r, '\n'.join(paths), doc_dir,
+                            file_paths=all_matched_files)
 
             ws_sc.cell(row=r, column=9).value = meta.author    # I
             ws_sc.cell(row=r, column=10).value = meta.status   # J
