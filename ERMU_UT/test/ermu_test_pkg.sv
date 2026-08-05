@@ -42,7 +42,7 @@ package ermu_test_pkg;
             if (!uvm_config_db #(virtual ermu_clk_rst_if)::get(this, "", "clk_rst_vif", clk_rst_vif))
                 `uvm_fatal("BASE_TEST", "clk_rst_vif not found in config_db")
             // Global simulation timeout: 100ms (avoids infinite hang)
-            uvm_root::get().set_timeout(100_000_000, 0);
+            uvm_root::get().set_timeout(100_000_000, 1);
             `uvm_info("BASE_TEST", "Testbench topology built (timeout=100ms)", UVM_MEDIUM)
         endfunction
 
@@ -56,9 +56,9 @@ package ermu_test_pkg;
         endtask
 
         // ---- Reset hierarchy (active HIGH):  ----
-        //   POR (rst_pvs_s)     → cascades SYS + APP
-        //   SYS (rst_pss_h2_s)  → cascades APP
-        //   APP (rst_h2_s)      → independent
+        //   POR (rst_pvs_s)     -> cascades SYS + APP
+        //   SYS (rst_pss_h2_s)  -> cascades APP
+        //   APP (rst_h2_s)      -> independent
         //   Release order: pss_h2 first, h2 last
         localparam int RST_HOLD_CYCLES = 10;
         localparam int RST_RELEASE_GAP = 2;   // cycles between pss_h2 and h2 release
@@ -69,7 +69,7 @@ package ermu_test_pkg;
         task pulse_reset(reset_level_t level);
             case (level)
                 POR_RST: begin
-                    `uvm_info("BASE_TEST", "Pulsing POR (rst_pvs_s → cascades SYS+APP)", UVM_MEDIUM)
+                    `uvm_info("BASE_TEST", "Pulsing POR (rst_pvs_s -> cascades SYS+APP)", UVM_MEDIUM)
                     clk_rst_vif.rst_pvs_s    <= 1'b1;
                     clk_rst_vif.rst_pss_h2_s <= 1'b1;
                     clk_rst_vif.rst_h2_s     <= 1'b1;
@@ -80,7 +80,7 @@ package ermu_test_pkg;
                     clk_rst_vif.rst_h2_s     <= 1'b0;
                 end
                 SYS_RST: begin
-                    `uvm_info("BASE_TEST", "Pulsing SYS_RST (rst_pss_h2_s → cascades APP)", UVM_MEDIUM)
+                    `uvm_info("BASE_TEST", "Pulsing SYS_RST (rst_pss_h2_s -> cascades APP)", UVM_MEDIUM)
                     clk_rst_vif.rst_pss_h2_s <= 1'b1;
                     clk_rst_vif.rst_h2_s     <= 1'b1;
                     repeat(RST_HOLD_CYCLES) @(posedge clk_rst_vif.pclk);
@@ -115,7 +115,7 @@ package ermu_test_pkg;
             if (check_bit >= 0) begin
                 if (!env.reg_block.is_valid_source(group * 32 + check_bit)) begin
                     `uvm_warning("BASE_TEST", $sformatf(
-                        "%s[%0d]: source ID %0d is RESERVED — cannot inject via err_src_id",
+                        "%s[%0d]: source ID %0d is RESERVED -- cannot inject via err_src_id",
                         gname, check_bit, group * 32 + check_bit))
                 end else if (rd_val[check_bit] != 1'b1) begin
                     `uvm_error("BASE_TEST", $sformatf(
@@ -187,6 +187,12 @@ package ermu_test_pkg;
     `include "ermu_hpi_test.sv"
     `include "ermu_output_chan_test.sv"
     `include "ermu_timer_test.sv"
+    `include "ermu_timer_full_test.sv"
+    `include "ermu_timer_corner_test.sv"
+    `include "ermu_timer_toggle_test.sv"
+    `include "ermu_wt1_coverage_test.sv"
+    `include "ermu_eout_chan_timer_test.sv"
+    `include "ermu_timer_lifecycle_test.sv"
     `include "ermu_prescaler_test.sv"
     `include "ermu_pssr_test.sv"
     `include "ermu_concurrent_test.sv"
@@ -194,5 +200,7 @@ package ermu_test_pkg;
     `include "ermu_stress_test.sv"
     `include "ermu_func_full_test.sv"
     `include "ermu_error_rsp_full_test.sv"
+    `include "ermu_erc_decode_test.sv"
+    `include "ermu_all_src_test.sv"
 
 endpackage : ermu_test_pkg

@@ -15,8 +15,8 @@ module hdl_top;
     import ermu_seq_pkg::*;
 
     // ---- Parameters ----
-    localparam CLK_PCLK_PERIOD   = 10000;  // pclk 100MHz  = 10ns
-    localparam CLK_HRC_PERIOD    = 125000; // clk_hrc 8MHz  = 125ns
+    localparam CLK_PCLK_PERIOD   = 10;     // pclk 100MHz  = 10ns
+    localparam CLK_HRC_PERIOD    = 125;    // clk_hrc 8MHz  = 125ns
     localparam RESET_HOLD_CYCLES = 10;
 
     // =====================================================================

@@ -9,7 +9,7 @@
 # =============================================================================
 
 call fsdbDumpfile "waves/ermu.fsdb"
-call fsdbDumpvars 0 hdl_top
+call fsdbDumpvars 0 hdl_top +all +mda
 
 # Run simulation
 run

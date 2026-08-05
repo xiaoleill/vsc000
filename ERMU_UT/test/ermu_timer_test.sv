@@ -35,7 +35,7 @@ class ermu_timer_test extends ermu_base_test;
         env.reg_block.EOyC[0].write(st, 32'h0001_0000, UVM_FRONTDOOR, env.reg_block.reg_map); // CTE=1
 
         // Set EOS via software (EOS=1 + CTE=1 → clear timer starts counting)
-        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // SET=1
+        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // (spec:TTCMP->CLR->TTE)
         #2000;
 
         // Verify EOS=1, CTS counting
@@ -86,7 +86,7 @@ class ermu_timer_test extends ermu_base_test;
         `uvm_info("TIMER", "--- Toggle Timer Test ---", UVM_NONE)
 
         // SET EOS=1 first — toggle timer does NOT count when EOS=1
-        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // SET=1
+        env.reg_block.EOyC[0].write(st, 32'h0000_0001, UVM_FRONTDOOR, env.reg_block.reg_map); // (spec:TTCMP->CLR->TTE)
         #5000;
 
         // Configure toggle: TTCMP=50, enable (won't count yet, EOS=1)
@@ -156,7 +156,7 @@ class ermu_timer_test extends ermu_base_test;
 
     task check_timer_running(string name, uvm_reg_data_t val);
         if (val == 0)
-            `uvm_warning("TIMER", {name, " timer counter is 0 — may not be running"})
+            `uvm_warning("TIMER", {name, " timer counter is 0 -- may not be running"})
         else
             `uvm_info("TIMER", $sformatf("%s timer running, CNT=0x%08h OK", name, val), UVM_HIGH)
     endtask

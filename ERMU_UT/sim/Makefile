@@ -26,17 +26,25 @@ XRUN_OPTS    = -f $(COMPILE_F) -uvmhome $(UVMHOME) -uvm \
                -nowarn UEXPSC -nohistory
 
 # ---- Test List (all 16 tests) ----
-TESTS = ermu_smoke_test        \
-        ermu_reg_test          \
-        ermu_cfglock_test      \
-        ermu_error_src_test    \
-        ermu_error_rsp_test    \
+TESTS = ermu_smoke_test         \
+        ermu_reg_test           \
+        ermu_cfglock_test       \
+        ermu_all_src_test       \
+        ermu_error_src_test     \
+        ermu_error_rsp_test     \
         ermu_error_rsp_full_test \
-        ermu_error_mask_test   \
+        ermu_erc_decode_test    \
+        ermu_error_mask_test    \
         ermu_pseudo_err_test   \
         ermu_hpi_test          \
         ermu_output_chan_test  \
         ermu_timer_test        \
+        ermu_timer_full_test   \
+        ermu_timer_corner_test  \
+        ermu_timer_toggle_test \
+        ermu_wt1_coverage_test  \
+        ermu_eout_chan_timer_test \
+        ermu_timer_lifecycle_test \
         ermu_prescaler_test    \
         ermu_pssr_test         \
         ermu_concurrent_test   \
@@ -181,6 +189,7 @@ VERB  ?= UVM_MEDIUM
 GUI   ?= 0
 COV   ?= 0
 DUMP  ?= 0
+SEEDS ?= 10
 
 .PHONY: test
 test: dirs
@@ -390,6 +399,20 @@ cov_regress: dirs
 	@echo "[COV REGRESS] Running all tests with coverage enabled..."
 	@for test in $(TESTS); do \
 		$(MAKE) --no-print-directory test TEST=$$test COV=1 SEED=1 VERB=UVM_LOW; \
+	done
+	@$(MAKE) cov_merge
+	@$(MAKE) cov_report
+
+.PHONY: cov_stress_seed
+cov_stress_seed:
+	@echo "[COV] Running stress_test with $(SEEDS) seeds ..."
+	@N=1; while [ $$N -le $(SEEDS) ]; do \
+		echo "[$$N/$(SEEDS)] seed=$$N"; \
+		$(XRUN) $(XRUN_OPTS) -coverage all -covoverwrite \
+		    +UVM_TESTNAME=ermu_stress_test +UVM_VERBOSITY=UVM_LOW -seed $$N \
+		    -covtest ermu_stress_test_s$$N -covworkdir $(COV_DIR)/ermu_stress_test_s$$N \
+		    -log $(LOG_DIR)/ermu_stress_test_s$$N.log 2>&1; \
+		N=$$((N + 1)); \
 	done
 	@$(MAKE) cov_merge
 	@$(MAKE) cov_report
